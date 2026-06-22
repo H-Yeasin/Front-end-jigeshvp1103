@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'Authentication/Splash_Screen/splash_screen.dart';
+import 'Authentication/splash_screen.dart';
 void main() {
   runApp(const MyApp());
 }

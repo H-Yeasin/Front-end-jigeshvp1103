@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'Sign_in.dart';
 
 // ─────────────────────────────────────────────────────────────
 //  SCREEN 1 — Logo Splash
@@ -285,10 +286,16 @@ class _NextSplashScreenState extends State<NextSplashScreen>
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-        // Navigator.pushReplacement(
-        //   context,
-        //   MaterialPageRoute(builder: (_) => const LoginScreen()),
-        // );
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const SignInScreen(),
+            transitionsBuilder: (_, animation, __, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 500),
+          ),
+        );
       }
     });
   }
