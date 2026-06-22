@@ -35,7 +35,7 @@ class SignInScreen extends StatelessWidget {
             top:   MediaQuery.of(context).padding.top + 12 * py,
             right: 16 * px,
             child: Image.asset(
-              'assets/images/corner.png',
+              'assets/images/top_corner.png',
               width:  22 * px,
               height: 22 * px,
               fit: BoxFit.contain,
@@ -88,10 +88,10 @@ class SignInScreen extends StatelessWidget {
                     'Log in with your school email',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize:      14 * px,
+                      fontSize:      16 * px,
                       fontWeight:    FontWeight.w400,
-                      color:         const Color(0xFF9E9E9E),
-                      height:        1.2,
+                      color:         const Color(0xFF6A6A6A),
+                      height:        1.2, // 120%
                       letterSpacing: 0,
                     ),
                   ),
