@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'date_of_birth.dart';
+
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
@@ -481,13 +483,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
     return _AnimatedCheckButton(
       onTap: isStudent
           ? () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Selected Role: $_selectedRole',
-                    style: GoogleFonts.plusJakartaSans(),
-                  ),
-                  duration: const Duration(seconds: 2),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DateOfBirthScreen(),
                 ),
               );
             }
