@@ -14,6 +14,18 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen>
   int _selectedMonth = 10;
   int _selectedYear = 2005;
 
+  bool _isUnder13() {
+    final DateTime now = DateTime.now();
+    final DateTime birthDate = DateTime(_selectedYear, _selectedMonth, _selectedDay);
+    int age = now.year - birthDate.year;
+    if (now.month < birthDate.month ||
+        (now.month == birthDate.month && now.day < birthDate.day)) {
+      age--;
+    }
+    return age < 13;
+  }
+
+
   // Avatar entrance
   late AnimationController _avatarController;
   late Animation<double> _avatarFade;
@@ -186,7 +198,6 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen>
     final double py = h / 852;
 
     final double frameWidth  = 348 * px;
-    final double frameHeight = 444 * py;
     final double frameLeft   = (w - frameWidth) / 2;
     final double frameTop    = 204 * py;
 
@@ -238,9 +249,8 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen>
             top:    frameTop,
             left:   frameLeft,
             width:  frameWidth,
-            height: frameHeight,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
 
@@ -351,6 +361,8 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen>
                   ],
                 ),
 
+                SizedBox(height: 48 * py),
+
                 // ── Date Pickers Row ───────────────────────────────
                 SizedBox(
                   width: 324 * px,
@@ -410,15 +422,64 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen>
                   ),
                 ),
 
-                // ── Check Button ───────────────────────────────────
-                Padding(
-                  padding: EdgeInsets.only(top: 12 * py),
-                  child: FadeTransition(
-                    opacity: _buttonFade,
-                    child: ScaleTransition(
-                      scale: _buttonScale,
-                      child: _buildCheckButton(px, py),
+                // Warning message
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  height: _isUnder13() ? 52 * py : 0,
+                  child: SingleChildScrollView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    child: Column(
+                      children: [
+                        SizedBox(height: 16 * py),
+                        AnimatedOpacity(
+                          duration: const Duration(milliseconds: 250),
+                          opacity: _isUnder13() ? 1.0 : 0.0,
+                          child: Container(
+                            width: 348 * px,
+                            padding: EdgeInsets.symmetric(horizontal: 8 * px, vertical: 8 * py),
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(4 * px),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error_outline_rounded,
+                                  color: const Color(0xFFFF6E00),
+                                  size: 16 * px,
+                                ),
+                                SizedBox(width: 8 * px),
+                                Expanded(
+                                  child: Text(
+                                    'You must be at least 13 years of age to use Squarle.',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize:   14 * px,
+                                      fontWeight: FontWeight.w400,
+                                      color:      const Color(0xFFFF6E00),
+                                      height:     1.2,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                ),
+
+                SizedBox(height: 48 * py),
+
+                // ── Check Button ───────────────────────────────────
+                FadeTransition(
+                  opacity: _buttonFade,
+                  child: ScaleTransition(
+                    scale: _buttonScale,
+                    child: _buildCheckButton(px, py),
                   ),
                 ),
               ],
@@ -462,18 +523,21 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen>
   }
 
   Widget _buildCheckButton(double px, double py) {
+    final bool isEligible = !_isUnder13();
     return _AnimatedCheckButton(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Selected Date: $_selectedDay/${_selectedMonth.toString().padLeft(2, '0')}/$_selectedYear',
-              style: GoogleFonts.plusJakartaSans(),
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      },
+      onTap: isEligible
+          ? () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Selected Date: $_selectedDay/${_selectedMonth.toString().padLeft(2, '0')}/$_selectedYear',
+                    style: GoogleFonts.plusJakartaSans(),
+                  ),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          : null,
       px: px,
     );
   }
@@ -645,7 +709,7 @@ class _WheelPickerBoxState extends State<_WheelPickerBox>
 
 // ── Animated Check Button ──────────────────────────────────────────
 class _AnimatedCheckButton extends StatefulWidget {
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final double px;
 
   const _AnimatedCheckButton({required this.onTap, required this.px});
@@ -680,33 +744,41 @@ class _AnimatedCheckButtonState extends State<_AnimatedCheckButton>
 
   @override
   Widget build(BuildContext context) {
+    final bool isEnabled = widget.onTap != null;
+
     return GestureDetector(
-      onTapDown:   (_) => _pressController.forward(),
-      onTapUp:     (_) => _pressController.reverse(),
-      onTapCancel: ()  => _pressController.reverse(),
+      onTapDown:   isEnabled ? (_) => _pressController.forward() : null,
+      onTapUp:     isEnabled ? (_) => _pressController.reverse() : null,
+      onTapCancel: isEnabled ? ()  => _pressController.reverse() : null,
       onTap:       widget.onTap,
       child: ScaleTransition(
         scale: _pressScale,
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           width:  64 * widget.px,
           height: 64 * widget.px,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end:   Alignment.bottomCenter,
-              colors: [
-                Color(0xFF58AAE3),
-                Color(0xFF1F7FC9),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color:      Color(0x3D1F7FC9),
-                blurRadius: 12,
-                offset:     Offset(0, 4),
-              ),
-            ],
+            color: isEnabled ? null : const Color(0xFF9BCDF3),
+            gradient: isEnabled
+                ? const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end:   Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF58AAE3),
+                      Color(0xFF1F7FC9),
+                    ],
+                  )
+                : null,
+            boxShadow: isEnabled
+                ? [
+                    const BoxShadow(
+                      color:      Color(0x3D1F7FC9),
+                      blurRadius: 12,
+                      offset:     Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: Center(
             child: Icon(
