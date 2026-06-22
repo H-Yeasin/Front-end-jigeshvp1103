@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'role_selection.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -346,7 +347,16 @@ class _SignInScreenState extends State<SignInScreen>
                       radius:   btnRadius,
                       iconSize: 20 * px,
                       px:       px,
-                      onTap:    () => _showSchoolEmailDialog(context, px, py),
+                      onTap:    () {
+                        // TODO: Uncomment below to show school email validation popup
+                        // _showSchoolEmailDialog(context, px, py);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RoleSelectionScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -366,7 +376,16 @@ class _SignInScreenState extends State<SignInScreen>
                       radius:   btnRadius,
                       iconSize: 20 * px,
                       px:       px,
-                      onTap:    () => _showSchoolEmailDialog(context, px, py),
+                      onTap:    () {
+                        // TODO: Uncomment below to show school email validation popup
+                        // _showSchoolEmailDialog(context, px, py);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RoleSelectionScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
