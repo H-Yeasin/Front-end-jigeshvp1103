@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'search.dart';
+import '../Settings/setting.dart';
 
 // ── Dummy model ────────────────────────────────────────────────────
 class ClassItem {
@@ -74,6 +75,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   // Per-page class lists (mutable, for swipe-to-remove)
   late List<List<_ClassItem>> _pages;
+
+  String _knownName = "Jigesh Padel";
+  final String _displayName = "Jiggy Pats";
 
   // ── Entrance animations ─────────────────────────────────────────
   late AnimationController _headerController;
@@ -229,8 +233,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
                     SizedBox(width: 12 * px),
 
-                    // JP Avatar — 40×40 circle with border
-                    _buildProfileAvatar(px),
+                     // JP Avatar — 40×40 circle with border
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push<String>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SettingsScreen(
+                              initialKnownName: _knownName,
+                              displayName: _displayName,
+                            ),
+                          ),
+                        ).then((newName) {
+                          if (newName != null && newName.trim().isNotEmpty) {
+                            setState(() {
+                              _knownName = newName.trim();
+                            });
+                          }
+                        });
+                      },
+                      child: _buildProfileAvatar(px),
+                    ),
                   ],
                 ),
               ),
@@ -344,7 +367,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       ),
       child: Center(
         child: Text(
-          'JP',
+          _getInitials(_knownName),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 14 * px,
             fontWeight: FontWeight.w600,
@@ -353,6 +376,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return 'JP';
+    List<String> parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length == 1) {
+      return parts[0].substring(0, parts[0].length > 1 ? 2 : 1).toUpperCase();
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 }
 
