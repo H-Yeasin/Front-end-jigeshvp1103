@@ -1,66 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'search.dart';
-import '../Settings/setting.dart';
 
-// ── Dummy model ────────────────────────────────────────────────────
-class ClassItem {
-  final String name;
-  final String teacher;
-  ClassItem({required this.name, required this.teacher});
-}
+import '../Class_Entrance/class_entrance.dart';
+import '../Settings/setting.dart';
+import '../models/class_item.dart';
+import '../services/class_service.dart';
+import 'search.dart';
 
 typedef _ClassItem = ClassItem;
 
-// ── Dummy semesters ────────────────────────────────────────────────
-final List<Map<String, dynamic>> _semesters = [
-  {
-    'label': 'Spring 2026',
-    'classes': [
-      _ClassItem(name: 'Database System', teacher: 'Abernathy, Mr.'),
-      _ClassItem(
-        name: 'Climate Change: Global Impact and future...',
-        teacher: 'Abernathy, M.',
-      ),
-      _ClassItem(
-        name: 'Data Structures and Algorithms',
-        teacher: 'Abernathy, M.',
-      ),
-      _ClassItem(name: 'Operating Systems', teacher: 'Abernathy, M.'),
-      _ClassItem(
-        name: 'Advanced Topics in Distributed Systems and...',
-        teacher: 'Abernathy, M.',
-      ),
-      _ClassItem(
-        name: 'Advanced Global Environmental Policy...',
-        teacher: 'Abernathy, M.',
-      ),
-      _ClassItem(name: 'Database System', teacher: 'Abernathy, M.'),
-      _ClassItem(name: 'Database System', teacher: 'Abernathy, M.'),
-    ],
-  },
-  {
-    'label': 'Spring 2027',
-    'classes': [
-      _ClassItem(name: 'Database System', teacher: 'Abernathy, M.'),
-      _ClassItem(
-        name: 'Climate Change: Global Impact and future...',
-        teacher: 'Abernathy, M.',
-      ),
-      _ClassItem(name: 'Database System', teacher: 'Abernathy, M.'),
-      _ClassItem(name: 'Database System', teacher: 'Abernathy, M.'),
-    ],
-  },
-  {
-    'label': 'Fall 2027',
-    'classes': [
-      _ClassItem(name: 'Database System', teacher: 'Abernathy, M.'),
-      _ClassItem(name: 'Operating Systems', teacher: 'Abernathy, M.'),
-    ],
-  },
-];
-
-// ═══════════════════════════════════════════════════════════════════
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -69,17 +17,18 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
-  // ── Page state ──────────────────────────────────────────────────
   int _currentPage = 0;
   late PageController _pageController;
 
-  // Per-page class lists (mutable, for swipe-to-remove)
-  late List<List<_ClassItem>> _pages;
+  List<Map<String, dynamic>> _semesters = [];
+  List<List<_ClassItem>> _pages = [];
+  bool _isLoadingClasses = true;
+  String? _classesError;
+  final ClassService _classService = ClassService();
 
   String _knownName = "Jigesh Padel";
   final String _displayName = "Jiggy Pats";
 
-  // ── Entrance animations ─────────────────────────────────────────
   late AnimationController _headerController;
   late Animation<double> _headerFade;
   late Animation<Offset> _headerSlide;
@@ -93,11 +42,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.initState();
 
     _pageController = PageController();
-    _pages = _semesters
-        .map<List<_ClassItem>>((s) => List<_ClassItem>.from(s['classes']))
-        .toList();
+    _loadMyClasses();
 
-    // ── Header slide-in from top ───────────────────────
     _headerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -113,7 +59,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
         );
 
-    // ── Content fade-up ────────────────────────────────
     _contentController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 650),
@@ -143,9 +88,83 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  Future<void> _loadMyClasses() async {
+    setState(() {
+      _isLoadingClasses = true;
+      _classesError = null;
+    });
+
+    try {
+      final classes = await _classService.getMyClasses();
+      if (!mounted) return;
+
+      final grouped = _groupClassesBySemester(classes);
+      setState(() {
+        _semesters = grouped;
+        _pages = grouped.map<List<_ClassItem>>((semester) {
+          return List<_ClassItem>.from(semester['classes'] as List);
+        }).toList();
+        _currentPage = 0;
+        _isLoadingClasses = false;
+      });
+
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _classesError = error.toString();
+        _semesters = [];
+        _pages = [];
+        _currentPage = 0;
+        _isLoadingClasses = false;
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> _groupClassesBySemester(List<ClassItem> classes) {
+    final grouped = <String, List<ClassItem>>{};
+    for (final classItem in classes) {
+      grouped.putIfAbsent(classItem.semesterLabel, () => []).add(classItem);
+    }
+
+    return grouped.entries.map((entry) {
+      return {'label': entry.key, 'classes': entry.value};
+    }).toList();
+  }
+
   void _removeClass(int pageIndex, int itemIndex) {
     setState(() {
       _pages[pageIndex].removeAt(itemIndex);
+      (_semesters[pageIndex]['classes'] as List).removeAt(itemIndex);
+    });
+  }
+
+  void _openSearch() {
+    Navigator.push<Map<String, dynamic>>(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            SearchScreen(addedClasses: _pages, semesters: _semesters),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 200),
+      ),
+    ).then((result) {
+      if (result == null) return;
+
+      final semesterLabel = result['semesterLabel'] as String;
+      final classItem = result['classItem'] as ClassItem;
+      final index = _semesters.indexWhere((s) => s['label'] == semesterLabel);
+
+      if (index != -1) {
+        setState(() {
+          _pages[index].add(classItem);
+          (_semesters[index]['classes'] as List).add(classItem);
+        });
+      }
     });
   }
 
@@ -156,7 +175,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final double px = w / 393;
     final double py = h / 852;
 
-    // Figma: Header top 68px, left 16px, width 361px, height 40px
     final double headerLeft = 16 * px;
     final double headerTop = 68 * py;
     final double headerWidth = 361 * px;
@@ -165,7 +183,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // ── Header (Search + JP Avatar) ───────────────────────────
           Positioned(
             top: headerTop,
             left: headerLeft,
@@ -177,52 +194,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Search icon — 40×40
                     GestureDetector(
-                      onTap: () {
-                        Navigator.push<Map<String, dynamic>>(
-                          context,
-                          PageRouteBuilder(
-                            pageBuilder:
-                                (context, animation, secondaryAnimation) =>
-                                    SearchScreen(
-                                      addedClasses: _pages,
-                                      semesters: _semesters,
-                                    ),
-                            transitionsBuilder:
-                                (
-                                  context,
-                                  animation,
-                                  secondaryAnimation,
-                                  child,
-                                ) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: child,
-                                  );
-                                },
-                            transitionDuration: const Duration(
-                              milliseconds: 200,
-                            ),
-                          ),
-                        ).then((result) {
-                          if (result != null) {
-                            final String semesterLabel =
-                                result['semesterLabel'] as String;
-                            final ClassItem classItem =
-                                result['classItem'] as ClassItem;
-
-                            final index = _semesters.indexWhere(
-                              (s) => s['label'] == semesterLabel,
-                            );
-                            if (index != -1) {
-                              setState(() {
-                                _pages[index].add(classItem);
-                              });
-                            }
-                          }
-                        });
-                      },
+                      onTap: _openSearch,
                       child: Image.asset(
                         'assets/images/search.png',
                         width: 40 * px,
@@ -230,10 +203,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         fit: BoxFit.contain,
                       ),
                     ),
-
                     SizedBox(width: 12 * px),
-
-                     // JP Avatar — 40×40 circle with border
                     GestureDetector(
                       onTap: () {
                         Navigator.push<String>(
@@ -259,10 +229,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
             ),
           ),
-
-          // ── Main content (title + list + dots) ───────────────────
           Positioned(
-            top: headerTop + 40 * py + 16 * py, // below header with 16px gap
+            top: headerTop + 40 * py + 16 * py,
             left: headerLeft,
             right: headerLeft,
             bottom: 0,
@@ -270,93 +238,122 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               opacity: _contentFade,
               child: SlideTransition(
                 position: _contentSlide,
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _semesters.length,
-                  onPageChanged: (i) => setState(() => _currentPage = i),
-                  itemBuilder: (context, pageIndex) {
-                    final String label = _semesters[pageIndex]['label'];
-                    final List<_ClassItem> items = _pages[pageIndex];
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // ── Semester label ────────────────────────
-                        // Figma: 361×24, Plus Jakarta Sans 600, 20px, #2B88CF, 120% lh
-                        Text(
-                          label,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 20 * px,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF2B88CF),
-                            height: 1.2,
-                          ),
-                        ),
-
-                        SizedBox(height: 12 * py),
-
-                        // ── Class list ────────────────────────────
-                        Expanded(
-                          child: ListView.separated(
-                            physics: const BouncingScrollPhysics(),
-                            padding: EdgeInsets.only(bottom: 80 * py),
-                            itemCount: items.length,
-                            separatorBuilder: (_, index) =>
-                                SizedBox(height: 8 * py),
-                            itemBuilder: (context, i) {
-                              return _SwipeToRemoveTile(
-                                key: ValueKey(
-                                  '${pageIndex}_${items[i].name}_$i',
-                                ),
-                                item: items[i],
-                                px: px,
-                                py: py,
-                                onRemove: () => _removeClass(pageIndex, i),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                child: _buildClassContent(px, py),
+              ),
+            ),
+          ),
+          if (_semesters.isNotEmpty)
+            Positioned(
+              bottom: 36 * py,
+              left: 0,
+              right: 0,
+              child: FadeTransition(
+                opacity: _contentFade,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(_semesters.length, (i) {
+                    final bool isActive = i == _currentPage;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      margin: EdgeInsets.symmetric(horizontal: 4 * px),
+                      width: isActive ? 24 * px : 8 * px,
+                      height: 8 * px,
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? const Color(0xFF2B88CF)
+                            : const Color(0xFFD9D9D9),
+                        borderRadius: BorderRadius.circular(4 * px),
+                      ),
                     );
-                  },
+                  }),
                 ),
               ),
             ),
-          ),
-
-          // ── Page indicator dots ───────────────────────────────────
-          Positioned(
-            bottom: 36 * py,
-            left: 0,
-            right: 0,
-            child: FadeTransition(
-              opacity: _contentFade,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_semesters.length, (i) {
-                  final bool isActive = i == _currentPage;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    margin: EdgeInsets.symmetric(horizontal: 4 * px),
-                    width: isActive ? 24 * px : 8 * px,
-                    height: 8 * px,
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? const Color(0xFF2B88CF)
-                          : const Color(0xFFD9D9D9),
-                      borderRadius: BorderRadius.circular(4 * px),
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  // ── JP Avatar ─────────────────────────────────────────────────────
+  Widget _buildClassContent(double px, double py) {
+    if (_isLoadingClasses) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF2B88CF)),
+      );
+    }
+
+    if (_classesError != null) {
+      return _ClassMessage(
+        px: px,
+        title: 'Could not load classes',
+        message: _classesError!,
+        actionLabel: 'Try again',
+        onAction: _loadMyClasses,
+      );
+    }
+
+    if (_semesters.isEmpty) {
+      return _ClassMessage(
+        px: px,
+        title: 'No classes yet',
+        message: 'Classes you add will appear here.',
+        actionLabel: 'Refresh',
+        onAction: _loadMyClasses,
+      );
+    }
+
+    return PageView.builder(
+      controller: _pageController,
+      itemCount: _semesters.length,
+      onPageChanged: (i) => setState(() => _currentPage = i),
+      itemBuilder: (context, pageIndex) {
+        final String label = _semesters[pageIndex]['label'];
+        final List<_ClassItem> items = _pages[pageIndex];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 20 * px,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF2B88CF),
+                height: 1.2,
+              ),
+            ),
+            SizedBox(height: 12 * py),
+            Expanded(
+              child: ListView.separated(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.only(bottom: 80 * py),
+                itemCount: items.length,
+                separatorBuilder: (_, index) => SizedBox(height: 8 * py),
+                itemBuilder: (context, i) {
+                  return _SwipeToRemoveTile(
+                    key: ValueKey(
+                      '${pageIndex}_${items[i].classListId}_${items[i].name}_$i',
+                    ),
+                    item: items[i],
+                    px: px,
+                    py: py,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            ClassEntranceScreen(classItem: items[i]),
+                      ),
+                    ),
+                    onRemove: () => _removeClass(pageIndex, i),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildProfileAvatar(double px) {
     return Container(
       width: 40 * px,
@@ -388,15 +385,60 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Swipe-to-remove tile
-// Figma: card bg white, rounded 0, swipe bg #FFCBCB, minus icon red
-// Width 447px (overflows left by -54px), Height 62px hug
-// ═══════════════════════════════════════════════════════════════════
+class _ClassMessage extends StatelessWidget {
+  final double px;
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  const _ClassMessage({
+    required this.px,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 18 * px,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1A1C1E),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13 * px,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF888888),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextButton(onPressed: onAction, child: Text(actionLabel)),
+        ],
+      ),
+    );
+  }
+}
+
 class _SwipeToRemoveTile extends StatefulWidget {
   final _ClassItem item;
   final double px;
   final double py;
+  final VoidCallback onTap;
   final VoidCallback onRemove;
 
   const _SwipeToRemoveTile({
@@ -404,6 +446,7 @@ class _SwipeToRemoveTile extends StatefulWidget {
     required this.item,
     required this.px,
     required this.py,
+    required this.onTap,
     required this.onRemove,
   });
 
@@ -450,14 +493,13 @@ class _SwipeToRemoveTileState extends State<_SwipeToRemoveTile>
         borderRadius: BorderRadius.circular(8 * px),
         child: Dismissible(
           key: widget.key!,
-          direction: DismissDirection.endToStart, // swipe LEFT
+          direction: DismissDirection.endToStart,
           confirmDismiss: (_) async {
             _animateRemove();
-            return false; // we handle removal ourselves via animation
+            return false;
           },
           background: Container(color: Colors.transparent),
           secondaryBackground: Container(
-            // Figma: bg #FFCBCB, minus icon centered
             decoration: BoxDecoration(
               color: const Color(0xFFFFCBCB),
               borderRadius: BorderRadius.circular(0 * px),
@@ -470,40 +512,44 @@ class _SwipeToRemoveTileState extends State<_SwipeToRemoveTile>
               size: 24 * px,
             ),
           ),
-          child: Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(
-              horizontal: 16 * px,
-              vertical: 12 * py,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F7),
-              borderRadius: BorderRadius.circular(8 * px),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  widget.item.name,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14 * px,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF1A1C1E),
-                    height: 1.3,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onTap,
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: 16 * px,
+                vertical: 12 * py,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F7F7),
+                borderRadius: BorderRadius.circular(8 * px),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.item.name,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14 * px,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF1A1C1E),
+                      height: 1.3,
+                    ),
                   ),
-                ),
-                SizedBox(height: 4 * py),
-                Text(
-                  widget.item.teacher,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12 * px,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF888888),
-                    height: 1.3,
+                  SizedBox(height: 4 * py),
+                  Text(
+                    widget.item.teacher,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12 * px,
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xFF888888),
+                      height: 1.3,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

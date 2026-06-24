@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'home_page.dart';
+import '../models/class_item.dart';
 
 // ════════════════════════════════════════════════════════════════════
 // SearchScreen  – Figma: canvas 393 × 852 px
