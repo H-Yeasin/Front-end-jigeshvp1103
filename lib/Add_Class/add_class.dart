@@ -15,13 +15,23 @@ class AddClassScreen extends StatefulWidget {
   State<AddClassScreen> createState() => _AddClassScreenState();
 }
 
-class _AddClassScreenState extends State<AddClassScreen> {
+class _AddClassScreenState extends State<AddClassScreen>
+    with TickerProviderStateMixin {
   static const double _figmaWidth = 393;
   static const double _figmaHeight = 852;
 
   final TextEditingController _courseTitleController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
+
+  late final AnimationController _entranceController;
+  late final AnimationController _buttonPressController;
+  late final Animation<double> _entranceFade;
+  late final Animation<Offset> _titleSlide;
+  late final Animation<Offset> _progressSlide;
+  late final Animation<Offset> _contentSlide;
+  late final Animation<Offset> _buttonSlide;
+  late final Animation<double> _buttonPressScale;
 
   late final List<String> _terms;
   late String _selectedTerm;
@@ -31,11 +41,57 @@ class _AddClassScreenState extends State<AddClassScreen> {
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 760),
+    );
+    _buttonPressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 90),
+      reverseDuration: const Duration(milliseconds: 170),
+    );
+    _entranceFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0, 0.78, curve: Curves.easeOut),
+    );
+    _titleSlide = Tween<Offset>(begin: const Offset(0, -0.18), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0.05, 0.58, curve: Curves.easeOutCubic),
+          ),
+        );
+    _progressSlide =
+        Tween<Offset>(begin: const Offset(0, -0.12), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0.14, 0.68, curve: Curves.easeOutCubic),
+          ),
+        );
+    _contentSlide =
+        Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0.22, 0.88, curve: Curves.easeOutCubic),
+          ),
+        );
+    _buttonSlide = Tween<Offset>(begin: const Offset(0, 0.18), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0.34, 1, curve: Curves.easeOutBack),
+          ),
+        );
+    _buttonPressScale = Tween<double>(begin: 1, end: 0.92).animate(
+      CurvedAnimation(parent: _buttonPressController, curve: Curves.easeOut),
+    );
+
     _terms = _buildAcademicTerms();
     _selectedTerm = _defaultSelectedTerm(_terms);
     _courseTitleController.addListener(_syncInputState);
     _firstNameController.addListener(_syncInputState);
     _lastNameController.addListener(_syncInputState);
+    _entranceController.forward();
   }
 
   @override
@@ -46,6 +102,8 @@ class _AddClassScreenState extends State<AddClassScreen> {
     _courseTitleController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _entranceController.dispose();
+    _buttonPressController.dispose();
     super.dispose();
   }
 
@@ -71,6 +129,7 @@ class _AddClassScreenState extends State<AddClassScreen> {
 
   void _onTermTap(String term) {
     if (_selectedTerm == term) return;
+    HapticFeedback.selectionClick();
     setState(() => _selectedTerm = term);
   }
 
@@ -86,6 +145,7 @@ class _AddClassScreenState extends State<AddClassScreen> {
   void _onCheckTap() {
     FocusScope.of(context).unfocus();
     if (!_canContinue) return;
+    HapticFeedback.lightImpact();
 
     if (_step < 2) {
       setState(() => _step++);
@@ -135,12 +195,7 @@ class _AddClassScreenState extends State<AddClassScreen> {
                     children: [
                       _buildTitle(scale, py),
                       _buildProgress(px, py, scale),
-                      if (_step == 0)
-                        _buildTermStep(screenSize, px, py, scale)
-                      else if (_step == 1)
-                        _buildCourseTitleStep(px, py, scale)
-                      else
-                        _buildInstructorStep(px, py, scale),
+                      _buildAnimatedStep(screenSize, px, py, scale),
                       _buildCheckButton(px, py, scale),
                     ],
                   ),
@@ -158,15 +213,21 @@ class _AddClassScreenState extends State<AddClassScreen> {
       top: 80 * py,
       left: 0,
       right: 0,
-      child: Text(
-        'Add your class',
-        textAlign: TextAlign.center,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 16 * scale,
-          fontWeight: FontWeight.w400,
-          color: const Color(0xFF2D2D2D),
-          height: 1.2,
-          letterSpacing: 0,
+      child: FadeTransition(
+        opacity: _entranceFade,
+        child: SlideTransition(
+          position: _titleSlide,
+          child: Text(
+            'Add your class',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16 * scale,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF2D2D2D),
+              height: 1.2,
+              letterSpacing: 0,
+            ),
+          ),
         ),
       ),
     );
@@ -177,10 +238,64 @@ class _AddClassScreenState extends State<AddClassScreen> {
       top: 134 * py,
       left: 0,
       right: 0,
-      child: _ProgressIndicatorRow(
-        activeCount: _activeProgressCount,
-        px: px,
-        scale: scale,
+      child: FadeTransition(
+        opacity: _entranceFade,
+        child: SlideTransition(
+          position: _progressSlide,
+          child: _ProgressIndicatorRow(
+            activeCount: _activeProgressCount,
+            px: px,
+            scale: scale,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedStep(
+    Size screenSize,
+    double px,
+    double py,
+    double scale,
+  ) {
+    Widget child;
+    if (_step == 0) {
+      child = _buildTermStep(screenSize, px, py, scale);
+    } else if (_step == 1) {
+      child = _buildCourseTitleStep(px, py, scale);
+    } else {
+      child = _buildInstructorStep(px, py, scale);
+    }
+
+    return Positioned.fill(
+      child: FadeTransition(
+        opacity: _entranceFade,
+        child: SlideTransition(
+          position: _contentSlide,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 420),
+            reverseDuration: const Duration(milliseconds: 260),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final curved = CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+                reverseCurve: Curves.easeInCubic,
+              );
+              final offset = Tween<Offset>(
+                begin: const Offset(0.035, 0),
+                end: Offset.zero,
+              ).animate(curved);
+
+              return FadeTransition(
+                opacity: curved,
+                child: SlideTransition(position: offset, child: child),
+              );
+            },
+            child: KeyedSubtree(key: ValueKey<int>(_step), child: child),
+          ),
+        ),
       ),
     );
   }
@@ -324,36 +439,55 @@ class _AddClassScreenState extends State<AddClassScreen> {
     return Positioned(
       bottom: math.max(48 * py, MediaQuery.paddingOf(context).bottom + 48 * py),
       left: (MediaQuery.sizeOf(context).width - (64 * px)) / 2,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _canContinue ? _onCheckTap : null,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 180),
-          opacity: _canContinue ? 1 : 0,
-          child: IgnorePointer(
-            ignoring: !_canContinue,
-            child: Container(
-              width: 64 * px,
-              height: 64 * px,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF58AAE3), Color(0xFF1F7FC9)],
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x26000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
+      child: FadeTransition(
+        opacity: _entranceFade,
+        child: SlideTransition(
+          position: _buttonSlide,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: _canContinue
+                ? (_) => _buttonPressController.forward()
+                : null,
+            onTapUp: _canContinue
+                ? (_) => _buttonPressController.reverse()
+                : null,
+            onTapCancel: _canContinue
+                ? () => _buttonPressController.reverse()
+                : null,
+            onTap: _canContinue ? _onCheckTap : null,
+            child: ScaleTransition(
+              scale: _buttonPressScale,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                opacity: _canContinue ? 1 : 0,
+                child: IgnorePointer(
+                  ignoring: !_canContinue,
+                  child: Container(
+                    width: 64 * px,
+                    height: 64 * px,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF58AAE3), Color(0xFF1F7FC9)],
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x26000000),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 44 * scale,
+                    ),
                   ),
-                ],
-              ),
-              child: Icon(
-                Icons.check_rounded,
-                color: Colors.white,
-                size: 44 * scale,
+                ),
               ),
             ),
           ),
@@ -384,7 +518,9 @@ class _ProgressIndicatorRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(3, (index) {
         final bool isActive = index < activeCount;
-        return Container(
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
           width: itemWidth,
           height: itemHeight,
           margin: EdgeInsets.only(right: index == 2 ? 0 : gap),
@@ -617,23 +753,32 @@ class _TermPickerCardState extends State<_TermPickerCard> {
                   setState(() => _selectedIndex = index);
                   widget.onTermTap(term);
                 },
-                child: Center(
-                  child: Text(
-                    term,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: isSelected
-                          ? 16 * widget.scale
-                          : 12 * widget.scale,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                      color: isSelected
-                          ? const Color(0xFF1F7FC9)
-                          : const Color(0xFF8BC9F8),
-                      height: 1.25,
-                      letterSpacing: 0,
+                child: AnimatedScale(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  scale: isSelected ? 1 : 0.98,
+                  child: Center(
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: isSelected
+                            ? 16 * widget.scale
+                            : 12 * widget.scale,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: isSelected
+                            ? const Color(0xFF1F7FC9)
+                            : const Color(0xFF8BC9F8),
+                        height: 1.25,
+                        letterSpacing: 0,
+                      ),
+                      child: Text(
+                        term,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ),
