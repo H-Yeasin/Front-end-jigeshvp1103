@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'search.dart';
 import '../Settings/setting.dart';
@@ -178,7 +179,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     // Search icon — 40×40
-                    GestureDetector(
+                    _PremiumTap(
+                      haptic: true,
                       onTap: () {
                         Navigator.push<Map<String, dynamic>>(
                           context,
@@ -233,8 +235,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
                     SizedBox(width: 12 * px),
 
-                     // JP Avatar — 40×40 circle with border
-                    GestureDetector(
+                    // JP Avatar — 40×40 circle with border
+                    _PremiumTap(
+                      haptic: true,
                       onTap: () {
                         Navigator.push<String>(
                           context,
@@ -278,45 +281,58 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     final String label = _semesters[pageIndex]['label'];
                     final List<_ClassItem> items = _pages[pageIndex];
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // ── Semester label ────────────────────────
-                        // Figma: 361×24, Plus Jakarta Sans 600, 20px, #2B88CF, 120% lh
-                        Text(
-                          label,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 20 * px,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF2B88CF),
-                            height: 1.2,
+                    return _PageMotion(
+                      controller: _pageController,
+                      pageIndex: pageIndex,
+                      currentPage: _currentPage,
+                      px: px,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Semester label ────────────────────────
+                          // Figma: 361×24, Plus Jakarta Sans 600, 20px, #2B88CF, 120% lh
+                          Text(
+                            label,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 20 * px,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF2B88CF),
+                              height: 1.2,
+                            ),
                           ),
-                        ),
 
-                        SizedBox(height: 12 * py),
+                          SizedBox(height: 12 * py),
 
-                        // ── Class list ────────────────────────────
-                        Expanded(
-                          child: ListView.separated(
-                            physics: const BouncingScrollPhysics(),
-                            padding: EdgeInsets.only(bottom: 80 * py),
-                            itemCount: items.length,
-                            separatorBuilder: (_, index) =>
-                                SizedBox(height: 8 * py),
-                            itemBuilder: (context, i) {
-                              return _SwipeToRemoveTile(
-                                key: ValueKey(
-                                  '${pageIndex}_${items[i].name}_$i',
-                                ),
-                                item: items[i],
-                                px: px,
-                                py: py,
-                                onRemove: () => _removeClass(pageIndex, i),
-                              );
-                            },
+                          // ── Class list ────────────────────────────
+                          Expanded(
+                            child: ListView.separated(
+                              physics: const BouncingScrollPhysics(),
+                              padding: EdgeInsets.only(bottom: 80 * py),
+                              itemCount: items.length,
+                              separatorBuilder: (_, index) =>
+                                  SizedBox(height: 8 * py),
+                              itemBuilder: (context, i) {
+                                return _ListItemEntrance(
+                                  key: ValueKey(
+                                    'entrance_${pageIndex}_${items[i].name}_$i',
+                                  ),
+                                  index: i,
+                                  px: px,
+                                  child: _SwipeToRemoveTile(
+                                    key: ValueKey(
+                                      '${pageIndex}_${items[i].name}_$i',
+                                    ),
+                                    item: items[i],
+                                    px: px,
+                                    py: py,
+                                    onRemove: () => _removeClass(pageIndex, i),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     );
                   },
                 ),
@@ -336,7 +352,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 children: List.generate(_semesters.length, (i) {
                   final bool isActive = i == _currentPage;
                   return AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
+                    duration: const Duration(milliseconds: 320),
+                    curve: Curves.easeOutCubic,
                     margin: EdgeInsets.symmetric(horizontal: 4 * px),
                     width: isActive ? 24 * px : 8 * px,
                     height: 8 * px,
@@ -393,6 +410,134 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 // Figma: card bg white, rounded 0, swipe bg #FFCBCB, minus icon red
 // Width 447px (overflows left by -54px), Height 62px hug
 // ═══════════════════════════════════════════════════════════════════
+class _PremiumTap extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  final bool haptic;
+
+  const _PremiumTap({
+    required this.child,
+    required this.onTap,
+    this.haptic = false,
+  });
+
+  @override
+  State<_PremiumTap> createState() => _PremiumTapState();
+}
+
+class _PremiumTapState extends State<_PremiumTap>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 90),
+      reverseDuration: const Duration(milliseconds: 170),
+    );
+    _scale = Tween<double>(
+      begin: 1,
+      end: 0.92,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      onTap: () {
+        if (widget.haptic) HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: ScaleTransition(scale: _scale, child: widget.child),
+    );
+  }
+}
+
+class _PageMotion extends StatelessWidget {
+  final PageController controller;
+  final int pageIndex;
+  final int currentPage;
+  final double px;
+  final Widget child;
+
+  const _PageMotion({
+    required this.controller,
+    required this.pageIndex,
+    required this.currentPage,
+    required this.px,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      child: child,
+      builder: (context, child) {
+        double page = currentPage.toDouble();
+        if (controller.hasClients && controller.position.haveDimensions) {
+          page = controller.page ?? page;
+        }
+
+        final double distance = (page - pageIndex).abs().clamp(0.0, 1.0);
+        final double opacity = 1 - (distance * 0.16);
+        final double dx = (pageIndex - page).clamp(-1.0, 1.0) * 10 * px;
+
+        return Opacity(
+          opacity: opacity,
+          child: Transform.translate(offset: Offset(dx, 0), child: child),
+        );
+      },
+    );
+  }
+}
+
+class _ListItemEntrance extends StatelessWidget {
+  final int index;
+  final double px;
+  final Widget child;
+
+  const _ListItemEntrance({
+    super.key,
+    required this.index,
+    required this.px,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final int delay = (index * 28).clamp(0, 220);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: Duration(milliseconds: 360 + delay),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 10 * px),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
 class _SwipeToRemoveTile extends StatefulWidget {
   final _ClassItem item;
   final double px;
@@ -452,6 +597,7 @@ class _SwipeToRemoveTileState extends State<_SwipeToRemoveTile>
           key: widget.key!,
           direction: DismissDirection.endToStart, // swipe LEFT
           confirmDismiss: (_) async {
+            HapticFeedback.mediumImpact();
             _animateRemove();
             return false; // we handle removal ourselves via animation
           },
