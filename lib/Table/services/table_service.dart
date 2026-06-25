@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -61,6 +62,55 @@ class TableService {
         'content': content,
       },
     );
+    final data = body['data'];
+    return ChatMessage.fromJson(
+      data is Map<String, dynamic> ? data : <String, dynamic>{},
+    );
+  }
+
+  Future<ChatMessage> sendWhiteboardMessage(
+    String threadId,
+    Uint8List imageBytes,
+  ) async {
+    if (accessToken.trim().isEmpty) {
+      throw const TableServiceException(
+        'Missing access token. Run Flutter with --dart-define=access_token=<token>.',
+      );
+    }
+
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/api/v1/chat/messages'),
+    )
+      ..headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      })
+      ..fields['threadId'] = threadId
+      ..fields['type'] = 'whiteboard'
+      ..fields['content'] = 'whiteboard'
+      ..files.add(
+        http.MultipartFile.fromBytes(
+          'whiteboard',
+          imageBytes,
+          filename: 'drawing.png',
+        ),
+      );
+
+    final streamedResponse = await _client.send(request).timeout(
+          const Duration(seconds: 30),
+        );
+    final response = await http.Response.fromStream(streamedResponse);
+    final decoded = jsonDecode(response.body);
+    final body = decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+    final success = body['success'] == true;
+
+    if (response.statusCode < 200 || response.statusCode >= 300 || !success) {
+      throw TableServiceException(
+        body['message'] as String? ?? 'Unable to send drawing.',
+      );
+    }
+
     final data = body['data'];
     return ChatMessage.fromJson(
       data is Map<String, dynamic> ? data : <String, dynamic>{},

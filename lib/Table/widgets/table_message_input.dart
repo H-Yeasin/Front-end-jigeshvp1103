@@ -7,6 +7,7 @@ class TableMessageInput extends StatefulWidget {
   final double px;
   final double py;
   final ValueChanged<String> onSend;
+  final VoidCallback onOpenDrawing;
 
   const TableMessageInput({
     super.key,
@@ -15,6 +16,7 @@ class TableMessageInput extends StatefulWidget {
     required this.px,
     required this.py,
     required this.onSend,
+    required this.onOpenDrawing,
   });
 
   @override
@@ -51,7 +53,7 @@ class _TableMessageInputState extends State<TableMessageInput> {
       child: SafeArea(
         top: false,
         child: Container(
-          height: 40 * py,
+          height: 35 * py,
           decoration: BoxDecoration(
             color: const Color(0xFFF5F5F5),
             borderRadius: BorderRadius.circular(24 * px),
@@ -59,11 +61,35 @@ class _TableMessageInputState extends State<TableMessageInput> {
           child: Row(
             children: [
               SizedBox(width: 17 * px),
-              Text(
-                '~',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 28 * px,
-                  color: const Color(0xFF202020),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.enabled && !widget.isSending
+                    ? widget.onOpenDrawing
+                    : null,
+                child: SizedBox(
+                  width: 28 * px,
+                  height: 40 * py,
+                  child: Center(
+                    child: Transform.translate(
+                      offset: Offset(0, 2 * py),
+                      child: Text(
+                        '~',
+                        textAlign: TextAlign.center,
+                        strutStyle: StrutStyle(
+                          fontSize: 28 * px,
+                          height: 1,
+                          forceStrutHeight: true,
+                        ),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 28 * px,
+                          height: 1,
+                          color: widget.enabled
+                              ? const Color(0xFF202020)
+                              : const Color(0xFFBDBDBD),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               SizedBox(width: 8 * px),
