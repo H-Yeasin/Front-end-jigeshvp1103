@@ -31,17 +31,17 @@ class ToolbarControls extends StatelessWidget {
           children: <Widget>[
             _CircleSvgButton(
               assetPath: 'assets/icons/undo.svg',
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.white.withValues(alpha: 0.5),
               iconColor: const Color(0xFF202020),
               disabledIconColor: const Color(0xFF808080),
               onPressed: controller.canUndo ? controller.undo : null,
             ),
             const SizedBox(width: 8),
-            _ToolbarSvgButton(
+            _CircleSvgButton(
               assetPath: 'assets/icons/redo.svg',
+              backgroundColor: Colors.white.withValues(alpha: 0.5),
               iconColor: const Color(0xFF202020),
               disabledIconColor: const Color(0xFF808080),
-              selected: controller.canRedo,
               onPressed: controller.canRedo ? controller.redo : null,
             ),
           ],
@@ -102,16 +102,18 @@ class _ToolbarSvgButton extends StatelessWidget {
       onPressed: onPressed,
       icon: SvgPicture.asset(
         assetPath,
-        width: 28,
-        height: 28,
+        width: 25,
+        height: 25,
         colorFilter: ColorFilter.mode(
           onPressed == null ? disabledIconColor : iconColor,
           BlendMode.srcIn,
         ),
       ),
       style: IconButton.styleFrom(
-        fixedSize: const Size.square(46),
+        fixedSize: const Size.square(48),
         backgroundColor: Colors.transparent,
+        disabledBackgroundColor: Colors.transparent,
+        shape: const CircleBorder(),
       ),
     );
   }
@@ -173,21 +175,35 @@ class _CircleSvgButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onPressed,
-      icon: SvgPicture.asset(
-        assetPath,
-        width: 25,
-        height: 25,
-        colorFilter: ColorFilter.mode(
-          onPressed == null ? disabledIconColor : iconColor,
-          BlendMode.srcIn,
-        ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        shape: BoxShape.circle,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x26000000),
+            blurRadius: 14,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
-      style: IconButton.styleFrom(
-        fixedSize: const Size.square(48),
-        backgroundColor: backgroundColor,
-        disabledBackgroundColor: backgroundColor,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: SvgPicture.asset(
+          assetPath,
+          width: 25,
+          height: 25,
+          colorFilter: ColorFilter.mode(
+            onPressed == null ? disabledIconColor : iconColor,
+            BlendMode.srcIn,
+          ),
+        ),
+        style: IconButton.styleFrom(
+          fixedSize: const Size.square(48),
+          backgroundColor: Colors.transparent,
+          disabledBackgroundColor: Colors.transparent,
+          shape: const CircleBorder(),
+        ),
       ),
     );
   }
