@@ -30,4 +30,24 @@ class TableThread {
       lastActivityAt: DateTime.tryParse('${json['lastActivityAt'] ?? ''}'),
     );
   }
+
+  TableThread copyWith({
+    String? threadId,
+    String? createdByUserId,
+    String? title,
+    bool? userContributed,
+    bool? hasUnread,
+    bool? assessmentMarked,
+    DateTime? lastActivityAt,
+  }) {
+    return TableThread(
+      threadId: threadId ?? this.threadId,
+      createdByUserId: createdByUserId ?? this.createdByUserId,
+      title: title ?? this.title,
+      userContributed: userContributed ?? this.userContributed,
+      hasUnread: hasUnread ?? this.hasUnread,
+      assessmentMarked: assessmentMarked ?? this.assessmentMarked,
+      lastActivityAt: lastActivityAt ?? this.lastActivityAt,
+    );
+  }
 }

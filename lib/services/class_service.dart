@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/class_item.dart';
+import 'dev_auth_session.dart';
 
 class ClassService {
   static const String _upperBaseUrl = String.fromEnvironment(
@@ -52,7 +53,8 @@ class ClassService {
     }
 
     if (_upperAccessToken.isNotEmpty) return _upperAccessToken;
-    return _lowerAccessToken;
+    if (_lowerAccessToken.isNotEmpty) return _lowerAccessToken;
+    return DevAuthSession.accessToken;
   }
 
   Future<List<ClassItem>> getMyClasses() async {

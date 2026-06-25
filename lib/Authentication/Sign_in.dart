@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/dev_auth_session.dart';
 import 'role_selection.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -35,6 +36,9 @@ class _SignInScreenState extends State<SignInScreen>
   late AnimationController _cornerController;
   late Animation<double> _cornerFade;
   late Animation<double> _cornerScale;
+  final TextEditingController _devTokenController = TextEditingController(
+    text: DevAuthSession.defaultAccessToken,
+  );
 
   @override
   void initState() {
@@ -207,6 +211,24 @@ class _SignInScreenState extends State<SignInScreen>
     );
   }
 
+  void _continueWithDevToken() {
+    final token = _devTokenController.text.trim();
+    if (token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Paste a development access token first.')),
+      );
+      return;
+    }
+
+    DevAuthSession.setAccessToken(token);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const RoleSelectionScreen(),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -214,6 +236,7 @@ class _SignInScreenState extends State<SignInScreen>
     _googleController.dispose();
     _msController.dispose();
     _cornerController.dispose();
+    _devTokenController.dispose();
     super.dispose();
   }
 
@@ -390,6 +413,50 @@ class _SignInScreenState extends State<SignInScreen>
                   ),
                 ),
 
+                SizedBox(height: 18 * py),
+
+                TextField(
+                  controller: _devTokenController,
+                  minLines: 1,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Development access token',
+                    filled: true,
+                    fillColor: const Color(0xFFF5F8FB),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16 * px,
+                      vertical: 11 * py,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18 * px),
+                      borderSide: const BorderSide(color: Color(0xFFD8ECFC)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18 * px),
+                      borderSide: const BorderSide(color: Color(0xFF82C8FF)),
+                    ),
+                  ),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11 * px,
+                    color: const Color(0xFF333333),
+                    height: 1.3,
+                  ),
+                ),
+
+                SizedBox(height: 10 * py),
+
+                _AnimatedSocialButton(
+                  icon: 'assets/images/logo.png',
+                  label: 'Use temporary login',
+                  width: frameWidth,
+                  height: 48 * py,
+                  radius: btnRadius,
+                  iconSize: 18 * px,
+                  px: px,
+                  onTap: _continueWithDevToken,
+                ),
+
               ],
             ),
           ),
@@ -478,8 +545,8 @@ class _AnimatedSocialButtonState extends State<_AnimatedSocialButton>
               children: [
                 Image.asset(
                   widget.icon,
-                  width:  20 * widget.px,
-                  height: 20 * widget.px,
+                  width: widget.iconSize,
+                  height: widget.iconSize,
                   fit: BoxFit.contain,
                 ),
                 SizedBox(width: 12 * widget.px),

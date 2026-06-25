@@ -10,6 +10,7 @@ class ThreadListItem extends StatefulWidget {
   final double px;
   final double py;
   final VoidCallback onTap;
+  final VoidCallback? onAssessmentTap;
 
   const ThreadListItem({
     super.key,
@@ -19,6 +20,7 @@ class ThreadListItem extends StatefulWidget {
     required this.px,
     required this.py,
     required this.onTap,
+    this.onAssessmentTap,
   });
 
   @override
@@ -73,6 +75,7 @@ class _ThreadListItemState extends State<ThreadListItem>
     final isOwnThread =
         widget.currentUserId.isNotEmpty &&
         thread.createdByUserId == widget.currentUserId;
+    final canMarkAssessment = isOwnThread && widget.onAssessmentTap != null;
     final borderColor = selected
         ? const Color(0xFF2A9DF4)
         : thread.assessmentMarked
@@ -116,25 +119,31 @@ class _ThreadListItemState extends State<ThreadListItem>
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 31 * px,
-                    height: 31 * px,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? const Color(0xFFE7F4FE)
-                          : const Color(0xFFEDEDED),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isOwnThread
-                          ? Icons.crop_square
-                          : selected || thread.hasUnread
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_unchecked,
-                      size: 17 * px,
-                      color: selected || thread.hasUnread
-                          ? const Color(0xFF2A9DF4)
-                          : const Color(0xFF909090),
+                  GestureDetector(
+                    onTap: canMarkAssessment ? widget.onAssessmentTap : null,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: 31 * px,
+                      height: 31 * px,
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? const Color(0xFFE7F4FE)
+                            : const Color(0xFFEDEDED),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isOwnThread
+                            ? thread.assessmentMarked
+                                ? Icons.check_box
+                                : Icons.crop_square
+                            : selected || thread.hasUnread
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked,
+                        size: 17 * px,
+                        color: selected || thread.hasUnread
+                            ? const Color(0xFF2A9DF4)
+                            : const Color(0xFF909090),
+                      ),
                     ),
                   ),
                   SizedBox(width: 14 * px),

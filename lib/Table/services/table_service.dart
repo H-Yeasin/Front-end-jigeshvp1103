@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../services/dev_auth_session.dart';
 import '../models/chat_message.dart';
 import '../models/chat_thread_detail.dart';
 import '../models/table_detail.dart';
@@ -88,6 +89,16 @@ class TableService {
     return TableThread.fromJson(threadJson);
   }
 
+  Future<bool> toggleAssessment(String threadId) async {
+    final body = await _request(
+      Uri.parse('$baseUrl/api/v1/chat/threads/$threadId/assessment'),
+      method: 'PATCH',
+    );
+    final data = body['data'];
+    final dataJson = data is Map<String, dynamic> ? data : <String, dynamic>{};
+    return dataJson['assessmentMarked'] == true;
+  }
+
   String get currentUserId => _currentUserIdFromToken(accessToken);
 
   Future<Map<String, dynamic>> _request(
@@ -107,13 +118,21 @@ class TableService {
       if (payload != null) 'Content-Type': 'application/json',
     };
 
-    final response = method == 'POST'
-        ? await _client
-            .post(uri, headers: headers, body: jsonEncode(payload))
-            .timeout(const Duration(seconds: 15))
-        : await _client
-            .get(uri, headers: headers)
-            .timeout(const Duration(seconds: 15));
+    final response = switch (method) {
+      'POST' => await _client
+          .post(uri, headers: headers, body: jsonEncode(payload))
+          .timeout(const Duration(seconds: 15)),
+      'PATCH' => await _client
+          .patch(
+            uri,
+            headers: headers,
+            body: payload == null ? null : jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 15)),
+      _ => await _client
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 15)),
+    };
 
     final decoded = jsonDecode(response.body);
     final body = decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
@@ -140,7 +159,8 @@ class TableService {
     final injectedValue = value?.trim();
     if (injectedValue != null && injectedValue.isNotEmpty) return injectedValue;
     if (_upperAccessToken.isNotEmpty) return _upperAccessToken;
-    return _lowerAccessToken;
+    if (_lowerAccessToken.isNotEmpty) return _lowerAccessToken;
+    return DevAuthSession.accessToken;
   }
 
   static String _currentUserIdFromToken(String token) {

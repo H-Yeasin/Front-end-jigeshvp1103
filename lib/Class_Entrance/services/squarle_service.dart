@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../services/dev_auth_session.dart';
 import '../models/squarle_join_result.dart';
 import '../models/squarle_status.dart';
 
@@ -97,7 +98,8 @@ class SquarleService {
     final injectedValue = value?.trim();
     if (injectedValue != null && injectedValue.isNotEmpty) return injectedValue;
     if (_upperAccessToken.isNotEmpty) return _upperAccessToken;
-    return _lowerAccessToken;
+    if (_lowerAccessToken.isNotEmpty) return _lowerAccessToken;
+    return DevAuthSession.accessToken;
   }
 }
 

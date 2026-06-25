@@ -107,11 +107,22 @@ class _TableScreenState extends State<TableScreen> {
 
     if (selected == null) return;
 
-    if (!detail.threads.any((thread) => thread.threadId == selected.threadId)) {
-      setState(() {
-        _tableDetail = detail.copyWith(threads: [selected, ...detail.threads]);
-      });
-    }
+    final existingIndex = detail.threads.indexWhere(
+      (thread) => thread.threadId == selected.threadId,
+    );
+    final updatedThreads = existingIndex == -1
+        ? [selected, ...detail.threads]
+        : [
+            for (final thread in detail.threads)
+              thread.threadId == selected.threadId ? selected : thread,
+          ];
+
+    setState(() {
+      _tableDetail = detail.copyWith(threads: updatedThreads);
+      if (_selectedThread?.threadId == selected.threadId) {
+        _selectedThread = selected;
+      }
+    });
 
     if (selected.threadId != _selectedThread?.threadId) {
       await _loadThread(selected);
