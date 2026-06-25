@@ -51,9 +51,7 @@ class _DrawingScreenState extends State<DrawingScreen> {
       body: SafeArea(
         child: Stack(
           children: <Widget>[
-            Positioned.fill(
-              child: CanvasView(controller: _controller),
-            ),
+            Positioned.fill(child: CanvasView(controller: _controller)),
             Positioned(
               left: 16,
               top: 12,
@@ -63,9 +61,9 @@ class _DrawingScreenState extends State<DrawingScreen> {
               ),
             ),
             Positioned(
-              left: 16,
-              right: 16,
-              bottom: 14,
+              left: 0,
+              right: 0,
+              bottom: 0,
               child: _DrawingControls(
                 controller: _controller,
                 colors: _colors,
@@ -116,16 +114,13 @@ class _DrawingScreenState extends State<DrawingScreen> {
     const outputSize = Size.square(_exportSize);
     final drawingBounds = _drawingBounds();
 
-    canvas.drawRect(
-      Offset.zero & outputSize,
-      Paint()..color = Colors.white,
-    );
+    canvas.drawRect(Offset.zero & outputSize, Paint()..color = Colors.white);
 
     if (drawingBounds == null) {
       final image = await recorder.endRecording().toImage(
-            _exportSize.toInt(),
-            _exportSize.toInt(),
-          );
+        _exportSize.toInt(),
+        _exportSize.toInt(),
+      );
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
     }
@@ -151,9 +146,9 @@ class _DrawingScreenState extends State<DrawingScreen> {
     canvas.restore();
 
     final image = await recorder.endRecording().toImage(
-          _exportSize.toInt(),
-          _exportSize.toInt(),
-        );
+      _exportSize.toInt(),
+      _exportSize.toInt(),
+    );
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     return byteData?.buffer.asUint8List();
   }
@@ -168,10 +163,10 @@ class _DrawingScreenState extends State<DrawingScreen> {
       }
 
       final inflated = strokeBounds.inflate(stroke.strokeWidth / 2);
-      bounds = bounds == null ? inflated : bounds!.expandToInclude(inflated);
+      bounds = bounds == null ? inflated : bounds.expandToInclude(inflated);
     }
 
-    if (bounds == null || bounds!.isEmpty) {
+    if (bounds == null || bounds.isEmpty) {
       return null;
     }
 
@@ -179,7 +174,9 @@ class _DrawingScreenState extends State<DrawingScreen> {
   }
 }
 
-class _DrawingControls extends StatelessWidget {
+enum _OpenDrawingControl { none, pen, eraser }
+
+class _DrawingControls extends StatefulWidget {
   const _DrawingControls({
     required this.controller,
     required this.colors,
@@ -193,39 +190,61 @@ class _DrawingControls extends StatelessWidget {
   final VoidCallback onSend;
 
   @override
+  State<_DrawingControls> createState() => _DrawingControlsState();
+}
+
+class _DrawingControlsState extends State<_DrawingControls> {
+  _OpenDrawingControl _openControl = _OpenDrawingControl.none;
+
+  void _showPenControls() {
+    setState(() => _openControl = _OpenDrawingControl.pen);
+  }
+
+  void _showEraserControls() {
+    setState(() => _openControl = _OpenDrawingControl.eraser);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: controller,
+      animation: widget.controller,
       builder: (context, _) {
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.92),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 18,
-                offset: Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                BrushControls(
-                  controller: controller,
-                  colors: colors,
-                ),
-                ToolbarControls(
-                  controller: controller,
-                  isExporting: isExporting,
-                  onSend: onSend,
-                ),
-              ],
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
+              child: _openControl == _OpenDrawingControl.none
+                  ? const SizedBox.shrink()
+                  : Container(
+                      key: ValueKey<_OpenDrawingControl>(_openControl),
+                      margin: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: BrushControls(
+                        controller: widget.controller,
+                        colors: widget.colors,
+                        showColors: _openControl == _OpenDrawingControl.pen,
+                      ),
+                    ),
             ),
-          ),
+            Container(
+              height: 58,
+              color: Colors.transparent,
+              margin: const EdgeInsets.only(bottom: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: ToolbarControls(
+                controller: widget.controller,
+                isExporting: widget.isExporting,
+                onSend: widget.onSend,
+                onPenTap: _showPenControls,
+                onEraserTap: _showEraserControls,
+              ),
+            ),
+          ],
         );
       },
     );

@@ -10,11 +10,15 @@ class ToolbarControls extends StatelessWidget {
     required this.controller,
     required this.isExporting,
     required this.onSend,
+    required this.onPenTap,
+    required this.onEraserTap,
   });
 
   final CanvasController controller;
   final bool isExporting;
   final VoidCallback onSend;
+  final VoidCallback onPenTap;
+  final VoidCallback onEraserTap;
 
   @override
   Widget build(BuildContext context) {
@@ -25,29 +29,39 @@ class ToolbarControls extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
-            DrawingCircleIconButton(
-              icon: Icons.undo_rounded,
+            _CircleSvgButton(
+              assetPath: 'assets/icons/undo.svg',
+              backgroundColor: Colors.white,
+              iconColor: const Color(0xFF202020),
+              disabledIconColor: const Color(0xFF808080),
               onPressed: controller.canUndo ? controller.undo : null,
             ),
-            const SizedBox(width: 10),
-            DrawingCircleIconButton(
-              icon: Icons.redo_rounded,
+            const SizedBox(width: 8),
+            _ToolbarSvgButton(
+              assetPath: 'assets/icons/redo.svg',
+              selected: controller.canRedo,
               onPressed: controller.canRedo ? controller.redo : null,
             ),
           ],
         ),
         Row(
           children: <Widget>[
-            _ToolButton(
-              icon: Icons.edit_rounded,
+            _ToolbarSvgButton(
+              assetPath: 'assets/icons/pen.svg',
               selected: !isEraser,
-              onPressed: () => controller.setStrokeMode(StrokeMode.draw),
+              onPressed: () {
+                controller.setStrokeMode(StrokeMode.draw);
+                onPenTap();
+              },
             ),
-            const SizedBox(width: 12),
-            _ToolButton(
-              icon: Icons.cleaning_services_rounded,
+            const SizedBox(width: 18),
+            _ToolbarSvgButton(
+              assetPath: 'assets/icons/ereaser.svg',
               selected: isEraser,
-              onPressed: controller.toggleEraser,
+              onPressed: () {
+                controller.setStrokeMode(StrokeMode.erase);
+                onEraserTap();
+              },
             ),
           ],
         ),
@@ -57,6 +71,38 @@ class ToolbarControls extends StatelessWidget {
           onPressed: onSend,
         ),
       ],
+    );
+  }
+}
+
+class _ToolbarSvgButton extends StatelessWidget {
+  const _ToolbarSvgButton({
+    required this.assetPath,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String assetPath;
+  final bool selected;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: SvgPicture.asset(
+        assetPath,
+        width: 28,
+        height: 28,
+        colorFilter: ColorFilter.mode(
+          selected ? const Color(0xFF202020) : const Color(0xFF444444),
+          BlendMode.srcIn,
+        ),
+      ),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(46),
+        backgroundColor: Colors.transparent,
+      ),
     );
   }
 }
@@ -86,45 +132,54 @@ class _SendDrawingButton extends StatelessWidget {
               ),
             )
           : SvgPicture.asset(
-              'assets/icons/send.svg',
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(
-                enabled ? Colors.white : const Color(0xFFB8B8B8),
-                BlendMode.srcIn,
-              ),
+              enabled
+                  ? 'assets/icons/send.svg'
+                  : 'assets/icons/send_faded.svg',
+              width: 48,
+              height: 48,
             ),
       style: IconButton.styleFrom(
         fixedSize: const Size.square(48),
-        backgroundColor:
-            enabled ? const Color(0xFF2A9DF4) : const Color(0xFFF7F7F7),
-        disabledBackgroundColor: const Color(0xFFF7F7F7),
+        padding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        disabledBackgroundColor: Colors.transparent,
       ),
     );
   }
 }
 
-class _ToolButton extends StatelessWidget {
-  const _ToolButton({
-    required this.icon,
-    required this.selected,
+class _CircleSvgButton extends StatelessWidget {
+  const _CircleSvgButton({
+    required this.assetPath,
+    required this.backgroundColor,
+    required this.iconColor,
+    required this.disabledIconColor,
     required this.onPressed,
   });
 
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onPressed;
+  final String assetPath;
+  final Color backgroundColor;
+  final Color iconColor;
+  final Color disabledIconColor;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onPressed,
-      icon: Icon(icon),
-      color: selected ? Colors.white : const Color(0xFF202020),
+      icon: SvgPicture.asset(
+        assetPath,
+        width: 25,
+        height: 25,
+        colorFilter: ColorFilter.mode(
+          onPressed == null ? disabledIconColor : iconColor,
+          BlendMode.srcIn,
+        ),
+      ),
       style: IconButton.styleFrom(
-        fixedSize: const Size.square(46),
-        backgroundColor:
-            selected ? const Color(0xFF202020) : const Color(0xFFF2F2F2),
+        fixedSize: const Size.square(48),
+        backgroundColor: backgroundColor,
+        disabledBackgroundColor: backgroundColor,
       ),
     );
   }

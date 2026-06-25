@@ -8,45 +8,52 @@ class BrushControls extends StatelessWidget {
     super.key,
     required this.controller,
     required this.colors,
+    this.showColors = true,
   });
 
   final CanvasController controller;
   final List<Color> colors;
+  final bool showColors;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        SizedBox(
-          height: 34,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: colors.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final color = colors[index];
-              final selected = controller.selectedMode == StrokeMode.draw &&
-                  controller.selectedColor == color;
+        if (showColors)
+          SizedBox(
+            height: 34,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: colors.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final color = colors[index];
+                final selected = controller.selectedMode == StrokeMode.draw &&
+                    controller.selectedColor == color;
 
-              return _ColorSwatch(
-                color: color,
-                selected: selected,
-                onTap: () => controller.setColor(color),
-              );
-            },
+                return _ColorSwatch(
+                  color: color,
+                  selected: selected,
+                  onTap: () => controller.setColor(color),
+                );
+              },
+            ),
           ),
-        ),
         Row(
           children: <Widget>[
-            const Icon(Icons.line_weight_rounded, size: 20),
+            const Icon(
+              Icons.line_weight_rounded,
+              size: 20,
+              color: Colors.white,
+            ),
             Expanded(
               child: Slider(
                 min: 2,
                 max: 18,
                 value: controller.selectedStrokeWidth,
-                activeColor: const Color(0xFF202020),
-                inactiveColor: const Color(0xFFE8E8E8),
+                activeColor: Colors.white,
+                inactiveColor: const Color(0xFF383838),
                 onChanged: controller.setStrokeWidth,
               ),
             ),
@@ -58,6 +65,7 @@ class BrushControls extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -92,7 +100,7 @@ class _ColorSwatch extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: selected ? const Color(0xFF202020) : Colors.transparent,
+            color: selected ? Colors.white : Colors.transparent,
             width: 2,
           ),
         ),
