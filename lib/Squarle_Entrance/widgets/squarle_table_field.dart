@@ -80,7 +80,7 @@ class _SquarleTableFieldState extends State<SquarleTableField> {
             children: [
               _TableViewSection(
                 start: 1,
-                end: 40,
+                end: 41,
                 tableMap: tableMap,
                 assignedTableNumber: widget.assignedTableNumber,
                 px: px,
