@@ -29,7 +29,7 @@ class TableThreadHeader extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        constraints: BoxConstraints(minHeight: 56 * py),
+        constraints: BoxConstraints(minHeight: 46 * py),
         padding: EdgeInsets.symmetric(horizontal: 14 * px, vertical: 10 * py),
         decoration: BoxDecoration(
           color: const Color(0xFFF4F4F4),

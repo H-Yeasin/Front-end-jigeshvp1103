@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../Thread/thread_screen.dart';
+import '../drawing/drawing.dart';
 import 'models/chat_message.dart';
 import 'models/chat_thread_detail.dart';
 import 'models/table_detail.dart';
@@ -47,10 +50,15 @@ class _TableScreenState extends State<TableScreen> {
     setState(() => _isLoadingTable = true);
 
     try {
-      final detail = await _tableService.getTable(widget.sessionId, widget.tableId);
+      final detail = await _tableService.getTable(
+        widget.sessionId,
+        widget.tableId,
+      );
       if (!mounted) return;
 
-      final firstThread = detail.threads.isNotEmpty ? detail.threads.first : null;
+      final firstThread = detail.threads.isNotEmpty
+          ? detail.threads.first
+          : null;
       setState(() {
         _tableDetail = detail;
         _selectedThread = firstThread;
@@ -152,15 +160,51 @@ class _TableScreenState extends State<TableScreen> {
     }
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+  Future<void> _openDrawing() async {
+    if (!_canSend || _isSending) return;
+
+    final drawingBytes = await Navigator.push<Uint8List>(
+      context,
+      MaterialPageRoute(builder: (context) => const DrawingScreen()),
     );
+
+    if (drawingBytes == null || drawingBytes.isEmpty) return;
+    await _sendDrawing(drawingBytes);
+  }
+
+  Future<void> _sendDrawing(Uint8List imageBytes) async {
+    final thread = _selectedThread;
+    if (thread == null || _isSending) return;
+
+    setState(() => _isSending = true);
+
+    try {
+      final message = await _tableService.sendWhiteboardMessage(
+        thread.threadId,
+        imageBytes,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages = [..._messages, message];
+        _isSending = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isSending = false);
+      _showError(error.toString());
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   bool get _canSend {
     final tableCanParticipate = _tableDetail?.canParticipate == true;
-    final threadCanParticipate = _threadDetail?.canParticipate ?? tableCanParticipate;
+    final threadCanParticipate =
+        _threadDetail?.canParticipate ?? tableCanParticipate;
     return _selectedThread != null &&
         tableCanParticipate &&
         threadCanParticipate &&
@@ -180,7 +224,7 @@ class _TableScreenState extends State<TableScreen> {
         child: Column(
           children: [
             Padding(
-              padding: EdgeInsets.only(left: 11 * px, top: 24 * py),
+              padding: EdgeInsets.only(left: 0 * px, top: 0 * py),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
@@ -192,7 +236,7 @@ class _TableScreenState extends State<TableScreen> {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(22 * px, 18 * py, 22 * px, 0),
+              padding: EdgeInsets.fromLTRB(16 * px, 0 * py, 16 * px, 0),
               child: _isLoadingTable
                   ? Container(
                       height: 56 * py,
@@ -237,6 +281,7 @@ class _TableScreenState extends State<TableScreen> {
               px: px,
               py: py,
               onSend: _sendMessage,
+              onOpenDrawing: _openDrawing,
             ),
           ],
         ),
