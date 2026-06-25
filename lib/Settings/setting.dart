@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -22,9 +23,20 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with TickerProviderStateMixin {
   late TextEditingController _nameController;
   late FocusNode _focusNode;
+
+  late final AnimationController _entranceController;
+  late final AnimationController _buttonPressController;
+  late final Animation<double> _profileFade;
+  late final Animation<double> _cardFade;
+  late final Animation<double> _buttonFade;
+  late final Animation<Offset> _profileSlide;
+  late final Animation<Offset> _cardSlide;
+  late final Animation<Offset> _buttonSlide;
+  late final Animation<double> _buttonPressScale;
 
   // Live tracking of whether field has text
   bool _hasText = true;
@@ -36,8 +48,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _focusNode = FocusNode();
     _hasText = widget.initialKnownName.trim().isNotEmpty;
 
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 760),
+    );
+    _buttonPressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 90),
+      reverseDuration: const Duration(milliseconds: 170),
+    );
+    _profileFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0, 0.58, curve: Curves.easeOut),
+    );
+    _cardFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.16, 0.78, curve: Curves.easeOut),
+    );
+    _buttonFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.32, 1, curve: Curves.easeOut),
+    );
+    _profileSlide =
+        Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0, 0.66, curve: Curves.easeOutCubic),
+          ),
+        );
+    _cardSlide = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0.16, 0.82, curve: Curves.easeOutCubic),
+          ),
+        );
+    _buttonSlide = Tween<Offset>(begin: const Offset(0, 0.18), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0.32, 1, curve: Curves.easeOutBack),
+          ),
+        );
+    _buttonPressScale = Tween<double>(begin: 1, end: 0.92).animate(
+      CurvedAnimation(parent: _buttonPressController, curve: Curves.easeOut),
+    );
+
     // Listen to text changes for real-time UI updates
     _nameController.addListener(_onTextChanged);
+    _entranceController.forward();
   }
 
   void _onTextChanged() {
@@ -52,12 +111,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _nameController.removeListener(_onTextChanged);
     _nameController.dispose();
     _focusNode.dispose();
+    _entranceController.dispose();
+    _buttonPressController.dispose();
     super.dispose();
   }
 
   void _onSave() {
     final String text = _nameController.text.trim();
     if (text.isNotEmpty) {
+      HapticFeedback.lightImpact();
       Navigator.pop(context, text);
     }
   }
@@ -66,8 +128,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     // Responsive scaling – Figma canvas 393 × 852
-    final double w  = MediaQuery.of(context).size.width;
-    final double h  = MediaQuery.of(context).size.height;
+    final double w = MediaQuery.of(context).size.width;
+    final double h = MediaQuery.of(context).size.height;
     final double px = w / 393;
     final double py = h / 852;
 
@@ -96,19 +158,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       SizedBox(height: (226 * py) - safeTop),
 
                       // ── Profile Section (156 × 144 Hug, Gap 16px) ─────
-                      _buildProfileSection(px, py),
+                      FadeTransition(
+                        opacity: _profileFade,
+                        child: SlideTransition(
+                          position: _profileSlide,
+                          child: _buildProfileSection(px, py),
+                        ),
+                      ),
 
                       // Figma: parent frame gap = 16px
                       SizedBox(height: 16 * py),
 
                       // ── Name Edit Card (361 × 128 Hug) ─────────────────
-                      _buildNameEditCard(px, py),
+                      FadeTransition(
+                        opacity: _cardFade,
+                        child: SlideTransition(
+                          position: _cardSlide,
+                          child: _buildNameEditCard(px, py),
+                        ),
+                      ),
 
                       // Figma: parent frame gap = 16px
                       SizedBox(height: 16 * py),
 
                       // ── Checkmark Save Button (64 × 64) ────────────────
-                      _buildCheckmarkButton(px, py),
+                      FadeTransition(
+                        opacity: _buttonFade,
+                        child: SlideTransition(
+                          position: _buttonSlide,
+                          child: _buildCheckmarkButton(px, py),
+                        ),
+                      ),
 
                       // Bottom breathing room
                       SizedBox(height: 48 * py),
@@ -134,30 +214,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           // ── Avatar Circle – 80×80, Radius 39px, Border 3px #2D2D2D ──
           Container(
-            width:  80 * px,
+            width: 80 * px,
             height: 80 * px,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(39 * px),
-              border: Border.all(
-                color: const Color(0xFF2D2D2D),
-                width: 3 * px,
-              ),
+              border: Border.all(color: const Color(0xFF2D2D2D), width: 3 * px),
               color: Colors.white,
             ),
             child: Center(
               child: Text(
                 _getInitials(widget.displayName),
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize:   28 * px,
+                  fontSize: 28 * px,
                   fontWeight: FontWeight.w500,
-                  color:      const Color(0xFF2D2D2D),
+                  color: const Color(0xFF2D2D2D),
                 ),
               ),
             ),
           ),
 
           SizedBox(height: 16 * py), // Gap 16px within profile frame
-
           // ── Display Name + Verified badge ───────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -166,9 +242,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Text(
                   widget.displayName,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize:   18 * px,
+                    fontSize: 18 * px,
                     fontWeight: FontWeight.w600,
-                    color:      const Color(0xFF1A1C1E),
+                    color: const Color(0xFF1A1C1E),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -177,7 +253,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Icon(
                 Icons.verified,
                 color: const Color(0xFF8E8E93),
-                size:  16 * px,
+                size: 16 * px,
               ),
             ],
           ),
@@ -191,10 +267,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Verified as ${widget.initialKnownName}',
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
-                fontSize:   12 * px,
+                fontSize: 12 * px,
                 fontWeight: FontWeight.w400,
-                color:      const Color(0xFF888888),
-                height:     1.0, // 100% line height
+                color: const Color(0xFF888888),
+                height: 1.0, // 100% line height
               ),
             ),
           ),
@@ -212,45 +288,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       width: 361 * px,
       padding: EdgeInsets.only(
-        top:    16 * py,
+        top: 16 * py,
         bottom: 16 * py,
-        left:   12 * px,
-        right:  12 * px,
+        left: 12 * px,
+        right: 12 * px,
       ),
       decoration: BoxDecoration(
-        color:        const Color(0xFFF6FBFF),
+        color: const Color(0xFFF6FBFF),
         borderRadius: BorderRadius.circular(16 * px),
-        border: Border.all(
-          color: const Color(0xFF73C5FF),
-          width: 1 * px,
-        ),
+        border: Border.all(color: const Color(0xFF73C5FF), width: 1 * px),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize:       MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Instruction text
           Text(
             "Enter the name you\u2019re known by in class.",
             style: GoogleFonts.plusJakartaSans(
-              fontSize:   14 * px,
+              fontSize: 14 * px,
               fontWeight: FontWeight.w400,
-              color:      const Color(0xFF1A1C1E),
+              color: const Color(0xFF1A1C1E),
             ),
           ),
 
           SizedBox(height: 32 * py), // Figma gap: 32px
-
           // ── Input capsule ─────────────────────────────────────────
           Container(
             height: 48 * py,
             decoration: BoxDecoration(
-              color:        Colors.white,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(24 * px),
-              border: Border.all(
-                color: const Color(0xFF73C5FF),
-                width: 1 * px,
-              ),
+              border: Border.all(color: const Color(0xFF73C5FF), width: 1 * px),
             ),
             padding: EdgeInsets.symmetric(horizontal: 16 * px),
             child: Row(
@@ -259,33 +328,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Expanded(
                   child: TextField(
                     controller: _nameController,
-                    focusNode:  _focusNode,
+                    focusNode: _focusNode,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize:   14 * px,
+                      fontSize: 14 * px,
                       fontWeight: FontWeight.w400,
-                      color:      const Color(0xFF1A1C1E),
+                      color: const Color(0xFF1A1C1E),
                     ),
                     decoration: InputDecoration(
                       hintText: 'Preferred Name',
                       hintStyle: GoogleFonts.plusJakartaSans(
-                        fontSize:   14 * px,
+                        fontSize: 14 * px,
                         fontWeight: FontWeight.w400,
-                        color:      const Color(0xFFBABABA),
+                        color: const Color(0xFFBABABA),
                       ),
-                      border:         InputBorder.none,
-                      isDense:        true,
+                      border: InputBorder.none,
+                      isDense: true,
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
                 ),
 
                 // Pencil/edit icon – always visible
-                GestureDetector(
+                _PremiumTap(
+                  haptic: true,
                   onTap: () => _focusNode.requestFocus(),
                   child: Icon(
                     Icons.edit_outlined,
                     color: const Color(0xFF1A1C1E),
-                    size:  18 * px,
+                    size: 18 * px,
                   ),
                 ),
               ],
@@ -306,33 +376,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ══════════════════════════════════════════════════════════════════
   Widget _buildCheckmarkButton(double px, double py) {
     return GestureDetector(
+      onTapDown: _hasText ? (_) => _buttonPressController.forward() : null,
+      onTapUp: _hasText ? (_) => _buttonPressController.reverse() : null,
+      onTapCancel: _hasText ? () => _buttonPressController.reverse() : null,
       onTap: _hasText ? _onSave : null,
-      child: AnimatedOpacity(
-        opacity:  _hasText ? 1.0 : 0.5,
-        duration: const Duration(milliseconds: 200),
-        child: Container(
-          width:  64 * px,
-          height: 64 * px,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin:  Alignment.topLeft,
-              end:    Alignment.bottomRight,
-              colors: [Color(0xFF58AAE3), Color(0xFF1F7FC9)],
-            ),
-            borderRadius: BorderRadius.circular(50 * px),
-            boxShadow: const [
-              BoxShadow(
-                color:        Color(0x40000000), // 25% black
-                offset:       Offset(0, 2),
-                blurRadius:   8,
-                spreadRadius: 0,
+      child: ScaleTransition(
+        scale: _buttonPressScale,
+        child: AnimatedOpacity(
+          opacity: _hasText ? 1.0 : 0.5,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            width: 64 * px,
+            height: 64 * px,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF58AAE3), Color(0xFF1F7FC9)],
               ),
-            ],
-          ),
-          child: Icon(
-            Icons.check_rounded,
-            color: Colors.white,
-            size:  28 * px,
+              borderRadius: BorderRadius.circular(50 * px),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x40000000), // 25% black
+                  offset: Offset(0, 2),
+                  blurRadius: 8,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.check_rounded,
+              color: Colors.white,
+              size: 28 * px,
+            ),
           ),
         ),
       ),
@@ -349,5 +425,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return parts[0].substring(0, parts[0].length > 1 ? 2 : 1).toUpperCase();
     }
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+}
+
+class _PremiumTap extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  final bool haptic;
+
+  const _PremiumTap({
+    required this.child,
+    required this.onTap,
+    this.haptic = false,
+  });
+
+  @override
+  State<_PremiumTap> createState() => _PremiumTapState();
+}
+
+class _PremiumTapState extends State<_PremiumTap>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 90),
+      reverseDuration: const Duration(milliseconds: 170),
+    );
+    _scale = Tween<double>(
+      begin: 1,
+      end: 0.92,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      onTap: () {
+        if (widget.haptic) HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: ScaleTransition(scale: _scale, child: widget.child),
+    );
   }
 }

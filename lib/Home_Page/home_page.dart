@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../Class_Entrance/class_entrance.dart';
@@ -495,6 +496,7 @@ class _SwipeToRemoveTileState extends State<_SwipeToRemoveTile>
           key: widget.key!,
           direction: DismissDirection.endToStart,
           confirmDismiss: (_) async {
+            HapticFeedback.mediumImpact();
             _animateRemove();
             return false;
           },
