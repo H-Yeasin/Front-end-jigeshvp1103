@@ -2,19 +2,12 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../core/api_config.dart';
 import '../../services/dev_auth_session.dart';
 import '../models/squarle_join_result.dart';
 import '../models/squarle_status.dart';
 
 class SquarleService {
-  static const String _upperBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: '',
-  );
-  static const String _lowerBaseUrl = String.fromEnvironment(
-    'baseUrl',
-    defaultValue: '',
-  );
   static const String _upperAccessToken = String.fromEnvironment(
     'ACCESS_TOKEN',
     defaultValue: '',
@@ -29,7 +22,7 @@ class SquarleService {
   final http.Client _client;
 
   SquarleService({String? baseUrl, String? accessToken, http.Client? client})
-      : baseUrl = _resolveBaseUrl(baseUrl),
+      : baseUrl = ApiConfig.resolveBaseUrl(baseUrl),
         accessToken = _resolveAccessToken(accessToken),
         _client = client ?? http.Client();
 
@@ -84,14 +77,6 @@ class SquarleService {
     }
 
     return body;
-  }
-
-  static String _resolveBaseUrl(String? value) {
-    final injectedValue = value?.trim();
-    if (injectedValue != null && injectedValue.isNotEmpty) return injectedValue;
-    if (_upperBaseUrl.isNotEmpty) return _upperBaseUrl;
-    if (_lowerBaseUrl.isNotEmpty) return _lowerBaseUrl;
-    return 'http://10.0.2.2:5000';
   }
 
   static String _resolveAccessToken(String? value) {

@@ -2,19 +2,11 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../core/api_config.dart';
 import '../models/class_item.dart';
 import 'dev_auth_session.dart';
 
 class ClassService {
-  static const String _upperBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: '',
-  );
-  static const String _lowerBaseUrl = String.fromEnvironment(
-    'baseUrl',
-    defaultValue: '',
-  );
-
   static const String _upperAccessToken = String.fromEnvironment(
     'ACCESS_TOKEN',
     defaultValue: '',
@@ -29,22 +21,9 @@ class ClassService {
   final http.Client _client;
 
   ClassService({String? baseUrl, String? accessToken, http.Client? client})
-    : baseUrl = _resolveBaseUrl(baseUrl),
+    : baseUrl = ApiConfig.resolveBaseUrl(baseUrl),
       accessToken = _resolveAccessToken(accessToken),
       _client = client ?? http.Client();
-
-  static String _resolveBaseUrl(String? value) {
-    final injectedValue = value?.trim();
-    if (injectedValue != null && injectedValue.isNotEmpty) {
-      return injectedValue;
-    }
-
-    if (_upperBaseUrl.isNotEmpty) return _upperBaseUrl;
-    if (_lowerBaseUrl.isNotEmpty) return _lowerBaseUrl;
-
-    // Android emulators reach the host machine through 10.0.2.2.
-    return 'http://10.0.2.2:5000';
-  }
 
   static String _resolveAccessToken(String? value) {
     final injectedValue = value?.trim();
