@@ -197,11 +197,19 @@ class _DrawingControlsState extends State<_DrawingControls> {
   _OpenDrawingControl _openControl = _OpenDrawingControl.none;
 
   void _showPenControls() {
-    setState(() => _openControl = _OpenDrawingControl.pen);
+    setState(() {
+      _openControl = _openControl == _OpenDrawingControl.pen
+          ? _OpenDrawingControl.none
+          : _OpenDrawingControl.pen;
+    });
   }
 
   void _showEraserControls() {
-    setState(() => _openControl = _OpenDrawingControl.eraser);
+    setState(() {
+      _openControl = _openControl == _OpenDrawingControl.eraser
+          ? _OpenDrawingControl.none
+          : _OpenDrawingControl.eraser;
+    });
   }
 
   @override
