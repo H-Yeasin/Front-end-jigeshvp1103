@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../../core/api_config.dart';
 import '../../services/dev_auth_session.dart';
 import '../models/chat_message.dart';
 import '../models/chat_thread_detail.dart';
@@ -10,14 +11,6 @@ import '../models/table_detail.dart';
 import '../models/table_thread.dart';
 
 class TableService {
-  static const String _upperBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: '',
-  );
-  static const String _lowerBaseUrl = String.fromEnvironment(
-    'baseUrl',
-    defaultValue: '',
-  );
   static const String _upperAccessToken = String.fromEnvironment(
     'ACCESS_TOKEN',
     defaultValue: '',
@@ -32,7 +25,7 @@ class TableService {
   final http.Client _client;
 
   TableService({String? baseUrl, String? accessToken, http.Client? client})
-      : baseUrl = _resolveBaseUrl(baseUrl),
+      : baseUrl = ApiConfig.resolveBaseUrl(baseUrl),
         accessToken = _resolveAccessToken(accessToken),
         _client = client ?? http.Client();
 
@@ -199,14 +192,6 @@ class TableService {
     }
 
     return body;
-  }
-
-  static String _resolveBaseUrl(String? value) {
-    final injectedValue = value?.trim();
-    if (injectedValue != null && injectedValue.isNotEmpty) return injectedValue;
-    if (_upperBaseUrl.isNotEmpty) return _upperBaseUrl;
-    if (_lowerBaseUrl.isNotEmpty) return _lowerBaseUrl;
-    return 'http://10.0.2.2:5000';
   }
 
   static String _resolveAccessToken(String? value) {

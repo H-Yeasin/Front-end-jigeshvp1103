@@ -307,7 +307,8 @@ class _TemporaryLoginScreenState extends State<TemporaryLoginScreen> {
   static String _resolveBaseUrl() {
     if (_upperBaseUrl.isNotEmpty) return _upperBaseUrl;
     if (_lowerBaseUrl.isNotEmpty) return _lowerBaseUrl;
-    return 'http://10.0.2.2:5000';
+    // return 'http://10.0.2.2:5000';
+    return 'http://localhost:5000';
   }
 
   static Map<String, dynamic> _decodeBody(String rawBody) {
