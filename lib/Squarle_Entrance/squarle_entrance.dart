@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../Class_Entrance/models/squarle_join_result.dart';
 import '../Class_Entrance/services/squarle_service.dart';
+import '../services/socket_service.dart';
 import '../Table/table_screen.dart';
 import 'models/squarle_table.dart';
 import 'widgets/squarle_bottom_controls.dart';
@@ -26,11 +29,23 @@ class SquarleEntranceScreen extends StatefulWidget {
 
 class _SquarleEntranceScreenState extends State<SquarleEntranceScreen> {
   final SquarleService _squarleService = SquarleService();
+  final SocketService _socketService = SocketService();
+
   bool _isLeaving = false;
+
+  /// Mutable assigned table number — starts from joinResult and gets
+  /// updated when the user is regrouped (auto or manual) so the glow
+  /// moves to the new table.
+  late int _assignedTableNumber;
+
+  StreamSubscription<RegroupEvent>? _regroupSub;
 
   @override
   void initState() {
     super.initState();
+    _assignedTableNumber = widget.joinResult.tableNumber ?? 0;
+
+    // Show initial notification if passed (e.g. on first entry after join)
     if (widget.notificationMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showNotice(
@@ -39,6 +54,19 @@ class _SquarleEntranceScreenState extends State<SquarleEntranceScreen> {
         );
       });
     }
+
+    // Listen for live regroup events while on this screen
+    _regroupSub = _socketService.regroupStream.listen(_handleRegroup);
+  }
+
+  void _handleRegroup(RegroupEvent event) {
+    if (!mounted) return;
+    setState(() {
+      if (event.newTableNumber > 0) {
+        _assignedTableNumber = event.newTableNumber;
+      }
+    });
+    _showNotice(event.message, SquarleNoticeTone.green);
   }
 
   void _showNotice(String message, SquarleNoticeTone tone) {
@@ -87,6 +115,15 @@ class _SquarleEntranceScreenState extends State<SquarleEntranceScreen> {
       if (result == null || !mounted) return;
       final message = result['notificationMessage'] as String?;
       final tone = result['notificationTone'] as SquarleNoticeTone?;
+      final newTableNumber = result['newTableNumber'] as int?;
+
+      // Update the glow to the new table
+      if (newTableNumber != null && newTableNumber > 0) {
+        setState(() {
+          _assignedTableNumber = newTableNumber;
+        });
+      }
+
       if (message != null) {
         _showNotice(message, tone ?? SquarleNoticeTone.green);
       }
@@ -134,9 +171,15 @@ class _SquarleEntranceScreenState extends State<SquarleEntranceScreen> {
       return SquarleTable(
         id: 'fallback_$tableNumber',
         tableNumber: tableNumber,
-        occupancy: tableNumber == widget.joinResult.tableNumber ? 1 : 0,
+        occupancy: tableNumber == _assignedTableNumber ? 1 : 0,
       );
     });
+  }
+
+  @override
+  void dispose() {
+    _regroupSub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -154,7 +197,7 @@ class _SquarleEntranceScreenState extends State<SquarleEntranceScreen> {
             Positioned.fill(
               child: SquarleTableField(
                 tables: _visibleTables(),
-                assignedTableNumber: widget.joinResult.tableNumber,
+                assignedTableNumber: _assignedTableNumber,
                 px: px,
                 py: py,
                 onTableTap: _handleTableTap,

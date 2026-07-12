@@ -69,32 +69,18 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _handleRegroup(RegroupEvent event) {
-    if (!mounted || _isNavigatingAway) return;
-
-    _isNavigatingAway = true;
-
-    // Dismiss keyboard first to avoid IME flash
-    FocusManager.instance.primaryFocus?.unfocus();
-
-    // Pop back to SquarleEntranceScreen with notification result.
-    // The .then() callback on SquarleEntranceScreen's push() will read the
-    // result and show the centered SquarleNoticeDialog.
-    if (mounted) {
-      Navigator.of(context).pop({
-        'notificationMessage': event.message,
-        'notificationTone': SquarleNoticeTone.green,
-      });
-    }
+    _navigateBackWithNotice(
+      message: event.message,
+      tone: SquarleNoticeTone.green,
+      newTableNumber: event.newTableNumber,
+    );
   }
 
   void _handleRemoval(RemovalEvent event) {
     if (!mounted || _isNavigatingAway) return;
-
     _isNavigatingAway = true;
     FocusManager.instance.primaryFocus?.unfocus();
 
-    // Pop all the way back — SquarleEntranceScreen is not guaranteed to be
-    // the immediate parent if the user navigated into ThreadScreen first.
     Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -103,15 +89,31 @@ class _TableScreenState extends State<TableScreen> {
 
   void _handleWarning(WarningEvent event) {
     if (!mounted || _isNavigatingAway) return;
-
-    // Show the centered notice dialog directly on the TableScreen.
-    _showCenteredNotice(
-      event.message,
-      SquarleNoticeTone.orange,
-    );
+    _showCenteredNotice(event.message, SquarleNoticeTone.orange);
   }
 
-  // ── Centered notice dialog (reuses SquarleNoticeDialog) ───────────────
+  // ── Unified "navigate back with notice" ───────────────────────────────
+  // Called by both the socket regroup handler AND HTTP error handlers when
+  // the user was moved/removed — ensures the notification always appears on
+  // SquarleEntranceScreen, never as a bottom snackbar on TableScreen.
+
+  void _navigateBackWithNotice({
+    required String message,
+    required SquarleNoticeTone tone,
+    int? newTableNumber,
+  }) {
+    if (!mounted || _isNavigatingAway) return;
+    _isNavigatingAway = true;
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    Navigator.of(context).pop({
+      'notificationMessage': message,
+      'notificationTone': tone,
+      if (newTableNumber != null) 'newTableNumber': newTableNumber,
+    });
+  }
+
+  // ── Centered notice dialog (for warnings that don't navigate away) ────
 
   void _showCenteredNotice(String message, SquarleNoticeTone tone) {
     if (!mounted) return;
@@ -129,6 +131,18 @@ class _TableScreenState extends State<TableScreen> {
         py: py,
       ),
     );
+  }
+
+  // ── Error classifier ──────────────────────────────────────────────────
+
+  /// Returns true if the error text indicates the user was regrouped or
+  /// removed (not seated / table gone / thread not found).
+  static bool _isSeatingError(String errorText) {
+    final lower = errorText.toLowerCase();
+    return lower.contains('not seated') ||
+        lower.contains('thread not found') ||
+        lower.contains('table not found') ||
+        lower.contains('not found');
   }
 
   // ── Data loading ──────────────────────────────────────────────────────
@@ -159,7 +173,22 @@ class _TableScreenState extends State<TableScreen> {
     } catch (error) {
       if (!mounted || _isNavigatingAway) return;
       setState(() => _isLoadingTable = false);
-      _showError(error.toString());
+
+      final message = error.toString();
+      if (_isSeatingError(message)) {
+        // User was moved — navigate back so SquarleEntranceScreen shows the notice.
+        _navigateBackWithNotice(
+          message: 'Your table has been regrouped.',
+          tone: SquarleNoticeTone.green,
+        );
+      } else {
+        // Genuine network / server error — still skip the snackbar;
+        // the table screen is unusable anyway, so go back.
+        _navigateBackWithNotice(
+          message: 'Unable to load table. Please try again.',
+          tone: SquarleNoticeTone.orange,
+        );
+      }
     }
   }
 
@@ -181,7 +210,16 @@ class _TableScreenState extends State<TableScreen> {
     } catch (error) {
       if (!mounted || _isNavigatingAway) return;
       setState(() => _isLoadingThread = false);
-      _showError(error.toString());
+
+      final message = error.toString();
+      if (_isSeatingError(message)) {
+        _navigateBackWithNotice(
+          message: 'Your table has been regrouped.',
+          tone: SquarleNoticeTone.green,
+        );
+      }
+      // For other thread errors, just silently skip the thread.
+      // The table view is still usable without thread messages loaded.
     }
   }
 
@@ -249,7 +287,13 @@ class _TableScreenState extends State<TableScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSending = false);
-      _showError(error.toString());
+      final message = error.toString();
+      if (_isSeatingError(message)) {
+        _navigateBackWithNotice(
+          message: 'Your table has been regrouped.',
+          tone: SquarleNoticeTone.green,
+        );
+      }
     }
   }
 
@@ -284,17 +328,14 @@ class _TableScreenState extends State<TableScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSending = false);
-      _showError(error.toString());
+      final message = error.toString();
+      if (_isSeatingError(message)) {
+        _navigateBackWithNotice(
+          message: 'Your table has been regrouped.',
+          tone: SquarleNoticeTone.green,
+        );
+      }
     }
-  }
-
-  void _showError(String message) {
-    // Suppress errors after we've already decided to navigate away.
-    if (_isNavigatingAway) return;
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   bool get _canSend {
