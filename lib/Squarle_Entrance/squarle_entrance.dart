@@ -10,8 +10,15 @@ import 'widgets/squarle_table_field.dart';
 
 class SquarleEntranceScreen extends StatefulWidget {
   final SquarleJoinResult joinResult;
+  final String? notificationMessage;
+  final SquarleNoticeTone? notificationTone;
 
-  const SquarleEntranceScreen({super.key, required this.joinResult});
+  const SquarleEntranceScreen({
+    super.key,
+    required this.joinResult,
+    this.notificationMessage,
+    this.notificationTone,
+  });
 
   @override
   State<SquarleEntranceScreen> createState() => _SquarleEntranceScreenState();
@@ -24,9 +31,18 @@ class _SquarleEntranceScreenState extends State<SquarleEntranceScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.notificationMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showNotice(
+          widget.notificationMessage!,
+          widget.notificationTone ?? SquarleNoticeTone.green,
+        );
+      });
+    }
   }
 
   void _showNotice(String message, SquarleNoticeTone tone) {
+    if (!mounted) return;
     final size = MediaQuery.of(context).size;
     final px = size.width / 393;
     final py = size.height / 852;
@@ -58,7 +74,7 @@ class _SquarleEntranceScreenState extends State<SquarleEntranceScreen> {
       return;
     }
 
-    Navigator.push(
+    Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (context) => TableScreen(
@@ -67,7 +83,14 @@ class _SquarleEntranceScreenState extends State<SquarleEntranceScreen> {
           tableNumber: table.tableNumber,
         ),
       ),
-    );
+    ).then((result) {
+      if (result == null || !mounted) return;
+      final message = result['notificationMessage'] as String?;
+      final tone = result['notificationTone'] as SquarleNoticeTone?;
+      if (message != null) {
+        _showNotice(message, tone ?? SquarleNoticeTone.green);
+      }
+    });
   }
 
   Future<void> _leaveSquarle() async {

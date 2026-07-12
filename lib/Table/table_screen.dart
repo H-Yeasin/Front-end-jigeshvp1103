@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../services/socket_service.dart';
+import '../Squarle_Entrance/widgets/squarle_notice_dialog.dart';
 import '../Thread/thread_screen.dart';
 import '../drawing/drawing.dart';
 import 'models/chat_message.dart';
@@ -32,6 +35,8 @@ class TableScreen extends StatefulWidget {
 
 class _TableScreenState extends State<TableScreen> {
   final TableService _tableService = TableService();
+  final SocketService _socketService = SocketService();
+
   TableDetail? _tableDetail;
   TableThread? _selectedThread;
   ChatThreadDetail? _threadDetail;
@@ -40,13 +45,96 @@ class _TableScreenState extends State<TableScreen> {
   bool _isLoadingThread = false;
   bool _isSending = false;
 
+  StreamSubscription<RegroupEvent>? _regroupSub;
+  StreamSubscription<RemovalEvent>? _removalSub;
+  StreamSubscription<WarningEvent>? _warningSub;
+
+  bool _isNavigatingAway = false;
+
   @override
   void initState() {
     super.initState();
+    _setupSocket();
     _loadTable();
   }
 
+  // ── Socket listeners ──────────────────────────────────────────────────
+
+  void _setupSocket() {
+    _socketService.joinSquarle(widget.sessionId);
+
+    _regroupSub = _socketService.regroupStream.listen(_handleRegroup);
+    _removalSub = _socketService.removalStream.listen(_handleRemoval);
+    _warningSub = _socketService.warningStream.listen(_handleWarning);
+  }
+
+  void _handleRegroup(RegroupEvent event) {
+    if (!mounted || _isNavigatingAway) return;
+
+    _isNavigatingAway = true;
+
+    // Dismiss keyboard first to avoid IME flash
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    // Pop back to SquarleEntranceScreen with notification result.
+    // The .then() callback on SquarleEntranceScreen's push() will read the
+    // result and show the centered SquarleNoticeDialog.
+    if (mounted) {
+      Navigator.of(context).pop({
+        'notificationMessage': event.message,
+        'notificationTone': SquarleNoticeTone.green,
+      });
+    }
+  }
+
+  void _handleRemoval(RemovalEvent event) {
+    if (!mounted || _isNavigatingAway) return;
+
+    _isNavigatingAway = true;
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    // Pop all the way back — SquarleEntranceScreen is not guaranteed to be
+    // the immediate parent if the user navigated into ThreadScreen first.
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    });
+  }
+
+  void _handleWarning(WarningEvent event) {
+    if (!mounted || _isNavigatingAway) return;
+
+    // Show the centered notice dialog directly on the TableScreen.
+    _showCenteredNotice(
+      event.message,
+      SquarleNoticeTone.orange,
+    );
+  }
+
+  // ── Centered notice dialog (reuses SquarleNoticeDialog) ───────────────
+
+  void _showCenteredNotice(String message, SquarleNoticeTone tone) {
+    if (!mounted) return;
+    final size = MediaQuery.of(context).size;
+    final px = size.width / 393;
+    final py = size.height / 852;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (_) => SquarleNoticeDialog(
+        message: message,
+        tone: tone,
+        px: px,
+        py: py,
+      ),
+    );
+  }
+
+  // ── Data loading ──────────────────────────────────────────────────────
+
   Future<void> _loadTable() async {
+    if (_isNavigatingAway) return;
     setState(() => _isLoadingTable = true);
 
     try {
@@ -54,7 +142,7 @@ class _TableScreenState extends State<TableScreen> {
         widget.sessionId,
         widget.tableId,
       );
-      if (!mounted) return;
+      if (!mounted || _isNavigatingAway) return;
 
       final firstThread = detail.threads.isNotEmpty
           ? detail.threads.first
@@ -69,13 +157,14 @@ class _TableScreenState extends State<TableScreen> {
         await _loadThread(firstThread);
       }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || _isNavigatingAway) return;
       setState(() => _isLoadingTable = false);
       _showError(error.toString());
     }
   }
 
   Future<void> _loadThread(TableThread thread) async {
+    if (_isNavigatingAway) return;
     setState(() {
       _selectedThread = thread;
       _isLoadingThread = true;
@@ -83,14 +172,14 @@ class _TableScreenState extends State<TableScreen> {
 
     try {
       final detail = await _tableService.getThread(thread.threadId);
-      if (!mounted) return;
+      if (!mounted || _isNavigatingAway) return;
       setState(() {
         _threadDetail = detail;
         _messages = detail.messages;
         _isLoadingThread = false;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || _isNavigatingAway) return;
       setState(() => _isLoadingThread = false);
       _showError(error.toString());
     }
@@ -200,6 +289,9 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _showError(String message) {
+    // Suppress errors after we've already decided to navigate away.
+    if (_isNavigatingAway) return;
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
@@ -216,6 +308,15 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   @override
+  void dispose() {
+    _regroupSub?.cancel();
+    _removalSub?.cancel();
+    _warningSub?.cancel();
+    _socketService.leaveSquarle(widget.sessionId);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final double w = MediaQuery.of(context).size.width;
     final double h = MediaQuery.of(context).size.height;
@@ -224,6 +325,7 @@ class _TableScreenState extends State<TableScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           children: [
